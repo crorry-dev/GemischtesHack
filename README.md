@@ -21,10 +21,10 @@ Geplant sind:
 - **Auswertungen** zu wiederkehrenden Zitaten, Songs und Interpretinnen bzw.
   Interpreten, einschließlich Häufigkeiten und zeitlichem Verlauf.
 
-**Aktueller Stand:** Dieses Repository enthält die Projektbeschreibung,
-Ignore-Regeln und Lizenzen. Playlist, Datensammlung, Website und Automatisierung
-sind noch nicht implementiert; es gibt noch keinen veröffentlichten Playlist-
-oder Website-Link.
+**Aktueller Stand:** Eine CSV-Vorlage und eine erste statische Website unter
+[`site/`](site/) sind vorbereitet. Die Website zeigt die Einträge aus
+[`site/data/episoden.csv`](site/data/episoden.csv); echte Daten, eine Playlist
+und die Veröffentlichung müssen noch ergänzt bzw. eingerichtet werden.
 
 ### Was wir pro Verwendung erfassen wollen
 
@@ -48,6 +48,29 @@ eines Songs werden nicht allein anhand des Titels zusammengelegt. Die Playlist
 und Songstatistiken sollen nur bestätigte Zuordnungen berücksichtigen; offene
 Fälle bleiben separat sichtbar. Häufigkeiten zählen Verwendungen, nicht
 Playlist-Einträge.
+
+Die ausfüllbare Vorlage liegt in
+[`site/data/episoden.csv`](site/data/episoden.csv). Sie enthält nur die
+Kopfzeile. Spaltennamen bitte unverändert lassen; jede Zeile steht für eine
+Verwendung in einer Folge. CSV-Felder mit Kommas, Anführungszeichen oder
+Zeilenumbrüchen müssen nach den üblichen CSV-Regeln in doppelte
+Anführungszeichen gesetzt werden; doppelte Anführungszeichen innerhalb eines
+Feldes werden verdoppelt. Datum: `YYYY-MM-DD`, Zeitmarke: `HH:MM:SS`.
+`pruefstatus` ist `offen`, `vermutet`, `bestätigt` oder `kein Song`.
+Unbekannte Werte bleiben leer. Für eine Songreferenz ist `spotify_track_uri`
+optional und kann eine Spotify-Track-URI oder einen Track-Link enthalten.
+
+### GitHub Pages
+
+Die Website ist statisch und benötigt weder Build-Schritt noch zusätzliche
+Abhängigkeiten. Lokal kann sie beispielsweise mit
+`python3 -m http.server --directory site 8000` unter
+`http://localhost:8000` angesehen werden. Beim Push auf `main` veröffentlicht
+der Workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) den
+Inhalt von `site/` über GitHub Pages; alternativ lässt er sich manuell starten.
+In den Repository-Einstellungen muss Pages als Quelle **GitHub Actions**
+verwenden. Bis echte Datensätze eingetragen sind, zeigt die Seite einen
+Hinweis statt Beispieldaten.
 
 ### Erste Meilensteine
 
