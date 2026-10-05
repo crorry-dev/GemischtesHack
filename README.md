@@ -21,10 +21,11 @@ Geplant sind:
 - **Auswertungen** zu wiederkehrenden Zitaten, Songs und Interpretinnen bzw.
   Interpreten, einschließlich Häufigkeiten und zeitlichem Verlauf.
 
-**Aktueller Stand:** Eine CSV-Vorlage und eine erste statische Website unter
-[`site/`](site/) sind vorbereitet. Die Website zeigt die Einträge aus
-[`site/data/episoden.csv`](site/data/episoden.csv); echte Daten, eine Playlist
-und die Veröffentlichung müssen noch ergänzt bzw. eingerichtet werden.
+**Aktueller Stand:** Dieses Repository enthält die Projektbeschreibung,
+Ignore-Regeln, Lizenzen, eine [CSV-Vorlage für die Datensammlung](data/zitate.csv)
+und eine erste statische Website unter [`site/`](site/). Die Vorlage enthält
+noch keine erfassten Verwendungen. Playlist und Veröffentlichung müssen noch
+ergänzt bzw. eingerichtet werden.
 
 ### Was wir pro Verwendung erfassen wollen
 
@@ -49,28 +50,66 @@ und Songstatistiken sollen nur bestätigte Zuordnungen berücksichtigen; offene
 Fälle bleiben separat sichtbar. Häufigkeiten zählen Verwendungen, nicht
 Playlist-Einträge.
 
-Die ausfüllbare Vorlage liegt in
-[`site/data/episoden.csv`](site/data/episoden.csv). Sie enthält nur die
-Kopfzeile. Spaltennamen bitte unverändert lassen; jede Zeile steht für eine
-Verwendung in einer Folge. CSV-Felder mit Kommas, Anführungszeichen oder
-Zeilenumbrüchen müssen nach den üblichen CSV-Regeln in doppelte
-Anführungszeichen gesetzt werden; doppelte Anführungszeichen innerhalb eines
-Feldes werden verdoppelt. Datum: `YYYY-MM-DD`, Zeitmarke: `HH:MM:SS`.
-`pruefstatus` ist `offen`, `vermutet`, `bestätigt` oder `kein Song`.
-Unbekannte Werte bleiben leer. Für eine Songreferenz ist `spotify_track_uri`
-optional und kann eine Spotify-Track-URI oder einen Track-Link enthalten.
+### Daten eintragen und als Playlist-Grundlage nutzen
+
+Die gemeinsame Datendatei ist [`data/zitate.csv`](data/zitate.csv). Sie lässt
+sich in einem Texteditor oder Tabellenprogrammen wie LibreOffice Calc und Excel
+bearbeiten. Beim Import und Export **UTF-8**, **Komma als Trennzeichen** und
+**doppelte Anführungszeichen als Textbegrenzung** verwenden. Die Kopfzeile
+unverändert lassen; Felder mit Kommas, Anführungszeichen oder Zeilenumbrüchen
+müssen korrekt als CSV maskiert werden. In Tabellenprogrammen die Spalten als
+Text importieren, damit IDs, Datumsangaben und Zeitmarken unverändert bleiben.
+
+Jede weitere Zeile beschreibt genau eine Verwendung. Die Vorlage ist bewusst
+leer: Es werden keine erfundenen Folgen, Zitate oder Spotify-Tracks eingetragen.
+
+| CSV-Spalten | Eintragung |
+| --- | --- |
+| `verwendung_id` | Eindeutige, dauerhaft beibehaltene ID für diese Verwendung |
+| `folge_id`, `folge_titel`, `veroeffentlicht_am` | Stabile Folgen-ID, Titel und Datum (`YYYY-MM-DD`) |
+| `folge_url`, `zeitmarke` | Link zur Folge und Fundstelle (`HH:MM:SS`) |
+| `zitat_id`, `zitat_referenz` | Stabile Zitat-ID; bei Wiederholungen dieselbe ID nutzen. Referenz bevorzugt als Beschreibung in eigenen Worten, nicht als Songtext |
+| `songtitel`, `interpret` | Zugeordneter oder vermuteter Song und Interpret/in |
+| `spotify_track_uri` | Exakte Aufnahme als `spotify:track:<Track-ID>`; bei fehlender Spotify-Verfügbarkeit leer lassen |
+| `kontext`, `quellen` | Kontext in eigenen Worten und überprüfbare Beleg-URLs; mehrere Quellen mit ` \| ` trennen |
+| `pruefstatus` | Genau einer der Werte `offen`, `vermutet`, `bestätigt`, `kein Song` |
+| `beitrag_von`, `namensnennung`, `lizenz` | Gewünschter öffentlicher Beitragsname, Namensnennung für die Weiterverwendung und ggf. abweichende Lizenz |
+
+Für neue Einträge zunächst `offen` verwenden und unbekannte Angaben leer
+lassen. IDs selbst vergeben und später nicht umnummerieren; die `verwendung_id`
+darf nicht doppelt vorkommen. Ein Zitat in einer weiteren Folge erhält eine
+neue `verwendung_id`, behält aber seine `zitat_id`. Für `bestätigt` müssen
+Songtitel, Interpret/in und nachvollziehbare Quellen eingetragen sein. Die
+Hinweise zu fremden Inhalten und Lizenzen gelten auch für die CSV; ohne
+abweichende Lizenzangabe gelten für eigene Daten die unten genannten Bedingungen.
+
+Aus dieser Datei kann später eine Playlist manuell oder per optionaler
+Synchronisierung erstellt werden:
+
+1. Nur Zeilen mit `pruefstatus` gleich `bestätigt` berücksichtigen.
+2. Zeilen ohne gültige Spotify-Track-URI separat als fehlende Tracks aufführen,
+   nicht anhand des Songtitels automatisch eine Aufnahme auswählen.
+3. Identische Spotify-Track-URIs nur einmal in die Playlist übernehmen.
+   Unterschiedliche Aufnahmen bleiben getrennt.
+4. Alle Verwendungen in der CSV behalten, auch wenn ein Track bereits in der
+   Playlist enthalten ist oder nicht auf Spotify verfügbar ist.
+
+Die CSV ist eine Datenquelle, kein direkter Spotify-Import: Sie erstellt oder
+aktualisiert selbst noch keine Playlist und benötigt keine Zugangsdaten.
 
 ### GitHub Pages
 
 Die Website ist statisch und benötigt weder Build-Schritt noch zusätzliche
-Abhängigkeiten. Lokal kann sie beispielsweise mit
+Abhängigkeiten. Lokal lässt sie sich mit
 `python3 -m http.server --directory site 8000` unter
-`http://localhost:8000` angesehen werden. Beim Push auf `main` veröffentlicht
-der Workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) den
-Inhalt von `site/` über GitHub Pages; alternativ lässt er sich manuell starten.
-In den Repository-Einstellungen muss Pages als Quelle **GitHub Actions**
-verwenden. Bis echte Datensätze eingetragen sind, zeigt die Seite einen
-Hinweis statt Beispieldaten.
+`http://localhost:8000` ansehen. Dabei liest sie die CSV-Kopie unter
+`site/data/episoden.csv`; für lokale Änderungen an `data/zitate.csv` diese
+Datei vor der Vorschau dorthin kopieren. Beim Push auf `main` kopiert der
+Workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) die
+gemeinsame Datendatei automatisch in das Website-Artefakt und veröffentlicht
+es über GitHub Pages. Änderungen an CSV oder Website lösen die Veröffentlichung
+aus; alternativ lässt sich der Workflow manuell starten. In den
+Repository-Einstellungen muss Pages als Quelle **GitHub Actions** verwenden.
 
 ### Erste Meilensteine
 

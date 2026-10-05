@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "site/**"
+      - "data/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -22,6 +23,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Include shared episode data
+        run: cp data/zitate.csv site/data/episoden.csv
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:

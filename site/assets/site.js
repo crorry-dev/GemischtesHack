@@ -1,9 +1,10 @@
 const dataUrl = "data/episoden.csv";
 const expectedColumns = [
-  "folgen_id",
-  "folgen_titel",
-  "veroeffentlichungsdatum",
-  "folgenlink",
+  "verwendung_id",
+  "folge_id",
+  "folge_titel",
+  "veroeffentlicht_am",
+  "folge_url",
   "zeitmarke",
   "zitat_id",
   "zitat_referenz",
@@ -11,8 +12,8 @@ const expectedColumns = [
   "interpret",
   "spotify_track_uri",
   "kontext",
-  "pruefstatus",
   "quellen",
+  "pruefstatus",
   "beitrag_von",
   "namensnennung",
   "lizenz",
@@ -125,15 +126,15 @@ function normalizedStatus(record) {
 }
 
 function addEpisodeCell(cell, record) {
-  const title = record.folgen_titel || record.folgen_id || "Folge ohne Titel";
-  const episodeUrl = safeHttpUrl(record.folgenlink);
+  const title = record.folge_titel || record.folge_id || "Folge ohne Titel";
+  const episodeUrl = safeHttpUrl(record.folge_url);
   if (episodeUrl) {
     appendExternalLink(cell, title, episodeUrl, "episode-title");
   } else {
     appendText(cell, "span", title, "episode-title");
   }
-  if (record.veroeffentlichungsdatum) appendText(cell, "span", record.veroeffentlichungsdatum, "subtle");
-  if (record.folgen_id) appendText(cell, "span", `ID: ${record.folgen_id}`, "subtle");
+  if (record.veroeffentlicht_am) appendText(cell, "span", record.veroeffentlicht_am, "subtle");
+  if (record.folge_id) appendText(cell, "span", `ID: ${record.folge_id}`, "subtle");
 }
 
 function addReferenceCell(cell, record) {
