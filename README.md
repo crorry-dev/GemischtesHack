@@ -22,10 +22,10 @@ Geplant sind:
   Interpreten, einschließlich Häufigkeiten und zeitlichem Verlauf.
 
 **Aktueller Stand:** Dieses Repository enthält die Projektbeschreibung,
-Ignore-Regeln, Lizenzen und eine [CSV-Vorlage für die Datensammlung](data/zitate.csv).
-Die Vorlage enthält noch keine erfassten Verwendungen. Playlist, Website und
-Automatisierung sind noch nicht implementiert; es gibt noch keinen
-veröffentlichten Playlist- oder Website-Link.
+Ignore-Regeln, Lizenzen, eine [CSV-Vorlage für die Datensammlung](data/zitate.csv)
+und eine erste statische Website unter [`site/`](site/). Die Vorlage enthält
+noch keine erfassten Verwendungen. Playlist und Veröffentlichung müssen noch
+ergänzt bzw. eingerichtet werden.
 
 ### Was wir pro Verwendung erfassen wollen
 
@@ -96,6 +96,20 @@ Synchronisierung erstellt werden:
 
 Die CSV ist eine Datenquelle, kein direkter Spotify-Import: Sie erstellt oder
 aktualisiert selbst noch keine Playlist und benötigt keine Zugangsdaten.
+
+### GitHub Pages
+
+Die Website ist statisch und benötigt weder Build-Schritt noch zusätzliche
+Abhängigkeiten. Lokal lässt sie sich mit
+`python3 -m http.server --directory site 8000` unter
+`http://localhost:8000` ansehen. Dabei liest sie die CSV-Kopie unter
+`site/data/episoden.csv`; für lokale Änderungen an `data/zitate.csv` diese
+Datei vor der Vorschau dorthin kopieren. Beim Push auf `main` kopiert der
+Workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) die
+gemeinsame Datendatei automatisch in das Website-Artefakt und veröffentlicht
+es über GitHub Pages. Änderungen an CSV oder Website lösen die Veröffentlichung
+aus; alternativ lässt sich der Workflow manuell starten. In den
+Repository-Einstellungen muss Pages als Quelle **GitHub Actions** verwenden.
 
 ### Erste Meilensteine
 
