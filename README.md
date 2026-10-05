@@ -22,9 +22,10 @@ Geplant sind:
   Interpreten, einschließlich Häufigkeiten und zeitlichem Verlauf.
 
 **Aktueller Stand:** Dieses Repository enthält die Projektbeschreibung,
-Ignore-Regeln und Lizenzen. Playlist, Datensammlung, Website und Automatisierung
-sind noch nicht implementiert; es gibt noch keinen veröffentlichten Playlist-
-oder Website-Link.
+Ignore-Regeln, Lizenzen und eine [CSV-Vorlage für die Datensammlung](data/zitate.csv).
+Die Vorlage enthält noch keine erfassten Verwendungen. Playlist, Website und
+Automatisierung sind noch nicht implementiert; es gibt noch keinen
+veröffentlichten Playlist- oder Website-Link.
 
 ### Was wir pro Verwendung erfassen wollen
 
@@ -48,6 +49,53 @@ eines Songs werden nicht allein anhand des Titels zusammengelegt. Die Playlist
 und Songstatistiken sollen nur bestätigte Zuordnungen berücksichtigen; offene
 Fälle bleiben separat sichtbar. Häufigkeiten zählen Verwendungen, nicht
 Playlist-Einträge.
+
+### Daten eintragen und als Playlist-Grundlage nutzen
+
+Die gemeinsame Datendatei ist [`data/zitate.csv`](data/zitate.csv). Sie lässt
+sich in einem Texteditor oder Tabellenprogrammen wie LibreOffice Calc und Excel
+bearbeiten. Beim Import und Export **UTF-8**, **Komma als Trennzeichen** und
+**doppelte Anführungszeichen als Textbegrenzung** verwenden. Die Kopfzeile
+unverändert lassen; Felder mit Kommas, Anführungszeichen oder Zeilenumbrüchen
+müssen korrekt als CSV maskiert werden. In Tabellenprogrammen die Spalten als
+Text importieren, damit IDs, Datumsangaben und Zeitmarken unverändert bleiben.
+
+Jede weitere Zeile beschreibt genau eine Verwendung. Die Vorlage ist bewusst
+leer: Es werden keine erfundenen Folgen, Zitate oder Spotify-Tracks eingetragen.
+
+| CSV-Spalten | Eintragung |
+| --- | --- |
+| `verwendung_id` | Eindeutige, dauerhaft beibehaltene ID für diese Verwendung |
+| `folge_id`, `folge_titel`, `veroeffentlicht_am` | Stabile Folgen-ID, Titel und Datum (`YYYY-MM-DD`) |
+| `folge_url`, `zeitmarke` | Link zur Folge und Fundstelle (`HH:MM:SS`) |
+| `zitat_id`, `zitat_referenz` | Stabile Zitat-ID; bei Wiederholungen dieselbe ID nutzen. Referenz bevorzugt als Beschreibung in eigenen Worten, nicht als Songtext |
+| `songtitel`, `interpret` | Zugeordneter oder vermuteter Song und Interpret/in |
+| `spotify_track_uri` | Exakte Aufnahme als `spotify:track:<Track-ID>`; bei fehlender Spotify-Verfügbarkeit leer lassen |
+| `kontext`, `quellen` | Kontext in eigenen Worten und überprüfbare Beleg-URLs; mehrere Quellen mit ` \| ` trennen |
+| `pruefstatus` | Genau einer der Werte `offen`, `vermutet`, `bestätigt`, `kein Song` |
+| `beitrag_von`, `namensnennung`, `lizenz` | Gewünschter öffentlicher Beitragsname, Namensnennung für die Weiterverwendung und ggf. abweichende Lizenz |
+
+Für neue Einträge zunächst `offen` verwenden und unbekannte Angaben leer
+lassen. IDs selbst vergeben und später nicht umnummerieren; die `verwendung_id`
+darf nicht doppelt vorkommen. Ein Zitat in einer weiteren Folge erhält eine
+neue `verwendung_id`, behält aber seine `zitat_id`. Für `bestätigt` müssen
+Songtitel, Interpret/in und nachvollziehbare Quellen eingetragen sein. Die
+Hinweise zu fremden Inhalten und Lizenzen gelten auch für die CSV; ohne
+abweichende Lizenzangabe gelten für eigene Daten die unten genannten Bedingungen.
+
+Aus dieser Datei kann später eine Playlist manuell oder per optionaler
+Synchronisierung erstellt werden:
+
+1. Nur Zeilen mit `pruefstatus` gleich `bestätigt` berücksichtigen.
+2. Zeilen ohne gültige Spotify-Track-URI separat als fehlende Tracks aufführen,
+   nicht anhand des Songtitels automatisch eine Aufnahme auswählen.
+3. Identische Spotify-Track-URIs nur einmal in die Playlist übernehmen.
+   Unterschiedliche Aufnahmen bleiben getrennt.
+4. Alle Verwendungen in der CSV behalten, auch wenn ein Track bereits in der
+   Playlist enthalten ist oder nicht auf Spotify verfügbar ist.
+
+Die CSV ist eine Datenquelle, kein direkter Spotify-Import: Sie erstellt oder
+aktualisiert selbst noch keine Playlist und benötigt keine Zugangsdaten.
 
 ### Erste Meilensteine
 
