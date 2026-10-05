@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Community-Übersicht der Einstiegszitate und Songreferenzen aus Gemischtes Hack.">
+    <meta name="theme-color" content="#f4f0e8">
+    <title>Songreferenzen — Gemischtes Hack</title>
+    <link rel="stylesheet" href="assets/site.css">
+    <script src="assets/site.js" defer></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="Gemischtes Hack — Startseite">
+        <span class="brand-mark" aria-hidden="true">GH</span>
+        <span>Gemischtes<span class="brand-light">Hack</span></span>
+      </a>
+      <a class="repo-link" href="https://github.com/crorry-dev/GemischtesHack">
+        Zum Community-Projekt <span aria-hidden="true">↗</span>
+      </a>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <p class="eyebrow">Von Hackis, für Hackis</p>
+        <h1 id="page-title">Die Songs hinter den Zitaten.</h1>
+        <p class="intro-copy">
+          Eine gemeinsame, überprüfbare Sammlung der Songreferenzen am Anfang
+          der Folgen. Jede Zeile steht für eine Verwendung — offene Fragen
+          bleiben sichtbar.
+        </p>
+      </section>
+
+      <section class="stats" aria-label="Zusammenfassung">
+        <article class="stat-card">
+          <span class="stat-label">Verwendungen</span>
+          <strong id="stat-total" class="stat-value">–</strong>
+          <span class="stat-note">in allen Folgen</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Bestätigt</span>
+          <strong id="stat-confirmed" class="stat-value">–</strong>
+          <span class="stat-note">mit nachvollziehbarer Quelle</span>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Noch offen</span>
+          <strong id="stat-open" class="stat-value">–</strong>
+          <span class="stat-note">offen oder vermutet</span>
+        </article>
+      </section>
+
+      <section class="collection" aria-labelledby="collection-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Die Sammlung</p>
+            <h2 id="collection-title">Folgen &amp; Fundstellen</h2>
+          </div>
+          <a class="contribute-link" href="https://github.com/crorry-dev/GemischtesHack/blob/main/site/data/episoden.csv">
+            CSV-Vorlage <span aria-hidden="true">↗</span>
+          </a>
+        </div>
+
+        <div class="filters">
+          <label class="search-field">
+            <span class="sr-only">Sammlung durchsuchen</span>
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input id="search" type="search" placeholder="Folge, Zitat, Song oder Interpret suchen" autocomplete="off">
+          </label>
+          <label class="select-field">
+            <span class="sr-only">Nach Prüfstatus filtern</span>
+            <select id="status-filter">
+              <option value="">Alle Prüfstände</option>
+              <option value="offen">Offen</option>
+              <option value="vermutet">Vermutet</option>
+              <option value="bestätigt">Bestätigt</option>
+              <option value="kein Song">Kein Song</option>
+            </select>
+          </label>
+        </div>
+
+        <p id="results-count" class="results-count" aria-live="polite"></p>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Folge</th>
+                <th scope="col">Zitat &amp; Fundstelle</th>
+                <th scope="col">Songreferenz</th>
+                <th scope="col">Prüfstatus</th>
+                <th scope="col">Kontext &amp; Quellen</th>
+              </tr>
+            </thead>
+            <tbody id="entries">
+              <tr><td class="table-message" colspan="5">Sammlung wird geladen …</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p id="data-error" class="notice" role="status" hidden></p>
+      </section>
+
+      <aside class="contribute">
+        <span class="contribute-icon" aria-hidden="true">＋</span>
+        <div>
+          <h2>Eine Fundstelle entdeckt?</h2>
+          <p>Hilf mit, Hinweise und Quellen zu ergänzen oder zu korrigieren.</p>
+        </div>
+        <a href="https://github.com/crorry-dev/GemischtesHack/issues">
+          Mitmachen <span aria-hidden="true">↗</span>
+        </a>
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <p>Ein unabhängiges Community-Projekt — keine offizielle Verbindung zum Podcast.</p>
+      <a href="https://github.com/crorry-dev/GemischtesHack/blob/main/LICENSE-DATA">Daten: CC BY 4.0</a>
+    </footer>
+  </body>
+</html>
