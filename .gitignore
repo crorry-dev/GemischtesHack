@@ -48,6 +48,7 @@ vendor/bundle/
 *.log
 /tmp/
 /temp/
+.cache/
 
 # Keine Podcast-Aufnahmen oder Sprachmodelle versehentlich veröffentlichen
 *.mp3

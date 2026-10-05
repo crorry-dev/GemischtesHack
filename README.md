@@ -22,9 +22,10 @@ Geplant sind:
   Interpreten, einschließlich Häufigkeiten und zeitlichem Verlauf.
 
 **Aktueller Stand:** Dieses Repository enthält die Projektbeschreibung,
-Ignore-Regeln, Lizenzen, eine [CSV-Vorlage für die Datensammlung](data/zitate.csv)
-und eine erste statische Website unter [`site/`](site/). Die Vorlage enthält
-noch keine erfassten Verwendungen. Playlist und Veröffentlichung müssen noch
+Ignore-Regeln, Lizenzen, eine [CSV für die Datensammlung](data/zitate.csv),
+eine erste statische Website unter [`site/`](site/) und ein
+[Skript](scripts/csv_befuellen.py), das die CSV automatisch befüllt. Bestätigte
+Zuordnungen gibt es noch keine. Playlist und Veröffentlichung müssen noch
 ergänzt bzw. eingerichtet werden.
 
 ### Was wir pro Verwendung erfassen wollen
@@ -60,8 +61,9 @@ unverändert lassen; Felder mit Kommas, Anführungszeichen oder Zeilenumbrüchen
 müssen korrekt als CSV maskiert werden. In Tabellenprogrammen die Spalten als
 Text importieren, damit IDs, Datumsangaben und Zeitmarken unverändert bleiben.
 
-Jede weitere Zeile beschreibt genau eine Verwendung. Die Vorlage ist bewusst
-leer: Es werden keine erfundenen Folgen, Zitate oder Spotify-Tracks eingetragen.
+Jede weitere Zeile beschreibt genau eine Verwendung. Es werden keine erfundenen
+Folgen, Zitate oder Spotify-Tracks eingetragen; automatisch erkannte Angaben
+stehen auf `offen` oder `vermutet`, bis jemand sie geprüft hat.
 
 | CSV-Spalten | Eintragung |
 | --- | --- |
@@ -96,6 +98,50 @@ Synchronisierung erstellt werden:
 
 Die CSV ist eine Datenquelle, kein direkter Spotify-Import: Sie erstellt oder
 aktualisiert selbst noch keine Playlist und benötigt keine Zugangsdaten.
+
+### CSV automatisch befüllen
+
+Damit nicht jede Folge von Hand angelegt werden muss, füllt
+[`scripts/csv_befuellen.py`](scripts/csv_befuellen.py) die Datei
+`data/zitate.csv` auf. Nötig ist nur Python ab Version 3.9.
+
+```sh
+python3 scripts/csv_befuellen.py folgen
+python3 scripts/csv_befuellen.py zitate ORDNER
+```
+
+- `folgen` holt Nummer, Titel, Veröffentlichungsdatum und Link aller Folgen
+  über die Spotify-Web-API und legt fehlende Folgen mit Status `offen` an.
+  Titel, Datum und Link werden dabei immer von Spotify übernommen; Folgen ohne
+  Nummer (etwa „5 schnelle Fragen an …“) werden übersprungen. Dafür im
+  [Spotify-Developer-Dashboard](https://developer.spotify.com/dashboard) eine
+  App für die Web API anlegen (als Redirect-URI reicht
+  `http://127.0.0.1:8888/callback`, sie wird nicht benutzt) und Client-ID und
+  Client-Secret in eine lokale `.env` eintragen, Vorlage ist
+  [`.env.example`](.env.example). Apps im Development Mode funktionieren nur,
+  solange der Inhaber Spotify Premium hat. Zusätzlich schreibt `folgen` die
+  Datei `data/folgen.csv` mit Nummer, Titel, Datum, Länge und Link jeder Folge;
+  die Website nutzt sie für Kalender und Längen. Diese Datei wird bei jedem
+  Lauf neu geschrieben und nicht von Hand bearbeitet.
+- `zitate ORDNER` transkribiert den Anfang eigener Audiodateien lokal mit
+  Whisper (`pip install faster-whisper`, am besten in einer `.venv`) und
+  zerlegt ihn in Zitat, Ansage („Das, meine Damen und Herren, war …“) und
+  Begrüßung. Eingetragen werden Zitat, Zeitmarke und als Beleg der
+  Spotify-Link mit Zeitmarke. Nennt Felix Song und Interpret, landen beide mit
+  Status `vermutet` in der CSV, sonst bleibt der Status `offen`. Die
+  Folgennummer muss im Dateinamen stehen, z. B. `079.mp3` oder
+  `#79 WIR ROCKEN DAS.m4a`. Über die Spotify-API gibt es keine Audiodateien
+  der Folgen.
+
+Mit `--folgen 300-364` lassen sich einzelne Folgen auswählen, mit
+`--probelauf` wird nichts gespeichert. `zitate` füllt nur leere Felder und
+überspringt Folgen, für die schon ein Zitat eingetragen ist; Zwischenergebnisse
+liegen in `.cache/`. Die Erkennung ist eine Vorarbeit: Transkripte enthalten
+Hörfehler, gerade bei Namen und Songtiteln, deshalb vor `bestätigt` die Stelle
+selbst nachhören. Gespeichert
+wird immer im oben beschriebenen Format (Komma, Datum als `YYYY-MM-DD`); Dateien,
+die Excel mit Semikolon und Datum als `TT.MM.JJJJ` gespeichert hat, liest das
+Skript ebenfalls.
 
 ### GitHub Pages
 
@@ -169,8 +215,9 @@ Prüfung nicht.
   Podcast, an Musik, Zitaten, Marken und Stimmen bleiben unberührt.
 
 Die [`.gitignore`](.gitignore) hält lokale Zugangsdaten, typische Python- und
-JavaScript-Abhängigkeiten, Build-/Website-Ausgaben sowie Audio- und
-Sprachmodelldateien aus der Versionsverwaltung. Daten in CSV/JSON, Quellcode,
-Lockdateien und sichere `.env.example`-Vorlagen bleiben versionierbar.
+JavaScript-Abhängigkeiten, Build-/Website-Ausgaben, den Zwischenspeicher in
+`.cache/` sowie Audio- und Sprachmodelldateien aus der Versionsverwaltung.
+Daten in CSV/JSON, Quellcode, Lockdateien und sichere `.env.example`-Vorlagen
+bleiben versionierbar.
 Ignore-Regeln sind kein Sicherheitsschutz und wirken nicht auf bereits
 versionierte Dateien: Vor jedem Commit den Diff auf sensible Inhalte prüfen.
