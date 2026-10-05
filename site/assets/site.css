@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap");
-
 :root {
   color-scheme: light;
   --ink: #192321;
@@ -13,7 +11,7 @@
   --orange-pale: #f8e9de;
   --yellow-pale: #f4efdc;
   --shadow: 0 16px 48px rgb(39 47 42 / 7%);
-  font-family: "DM Sans", sans-serif;
+  font-family: "DM Sans", "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -53,7 +51,7 @@ main,
   display: inline-flex;
   align-items: center;
   gap: 11px;
-  font-family: Manrope, sans-serif;
+  font-family: Manrope, "Segoe UI", sans-serif;
   font-size: 15px;
   font-weight: 800;
   letter-spacing: -0.04em;
@@ -114,7 +112,7 @@ p {
 
 h1,
 h2 {
-  font-family: Manrope, sans-serif;
+  font-family: Manrope, "Segoe UI", sans-serif;
   letter-spacing: -0.055em;
 }
 
@@ -158,7 +156,7 @@ h1 {
 }
 
 .stat-value {
-  font-family: Manrope, sans-serif;
+  font-family: Manrope, "Segoe UI", sans-serif;
   font-size: 36px;
   font-weight: 700;
   letter-spacing: -0.06em;
