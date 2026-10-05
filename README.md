@@ -145,16 +145,23 @@ Skript ebenfalls.
 
 ### GitHub Pages
 
-Die Website ist statisch und benötigt weder Build-Schritt noch zusätzliche
-Abhängigkeiten. Lokal lässt sie sich mit
-`python3 -m http.server --directory site 8000` unter
-`http://localhost:8000` ansehen. Dabei liest sie die CSV-Kopie unter
-`site/data/episoden.csv`; für lokale Änderungen an `data/zitate.csv` diese
-Datei vor der Vorschau dorthin kopieren. Beim Push auf `main` kopiert der
+Die Website unter [`site/`](site/) ist statisch und kommt ohne Build-Schritt,
+Bibliotheken oder externe Schriften aus. Sie zeigt alle Folgen mit Suche und
+Filtern nach Jahr, Prüfstatus und Interpret/in, Kennzahlen, einen Kalender
+aller Folgen, Folgen pro Jahr, die Länge der Folgen und die meistzitierten
+Interpret:innen; jede Folge hat eine Detailansicht mit Belegen und einem Link,
+um Ergänzungen als Issue vorzuschlagen. Filter und geöffnete Folge stehen in
+der Adresse, sodass sich jede Ansicht als Link teilen lässt. Der eingebettete
+Spotify-Player wird erst nach einem Klick geladen.
+
+Lokal lässt sich die Seite aus dem Repository-Verzeichnis mit
+`python3 -m http.server 8000` starten und unter
+`http://localhost:8000/site/` ansehen; sie liest dann direkt `data/zitate.csv`
+und, falls vorhanden, `data/folgen.csv`. Beim Push auf `main` kopiert der
 Workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) die
-gemeinsame Datendatei automatisch in das Website-Artefakt und veröffentlicht
-es über GitHub Pages. Änderungen an CSV oder Website lösen die Veröffentlichung
-aus; alternativ lässt sich der Workflow manuell starten. In den
+CSV-Dateien aus `data/` in das Website-Artefakt und veröffentlicht es über
+GitHub Pages. Änderungen an Daten oder Website lösen die Veröffentlichung aus;
+alternativ lässt sich der Workflow manuell starten. In den
 Repository-Einstellungen muss Pages als Quelle **GitHub Actions** verwenden.
 
 ### Erste Meilensteine

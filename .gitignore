@@ -39,6 +39,7 @@ htmlcov/
 
 # GitHub Pages / Jekyll: generierte Website
 _site/
+site/data/
 .jekyll-cache/
 .jekyll-metadata
 .sass-cache/

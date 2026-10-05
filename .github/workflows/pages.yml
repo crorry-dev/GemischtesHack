@@ -23,8 +23,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Include shared episode data
-        run: cp data/zitate.csv site/data/episoden.csv
+      - name: Include shared data
+        run: |
+          mkdir -p site/data
+          cp data/*.csv site/data/
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
