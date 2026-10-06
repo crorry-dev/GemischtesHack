@@ -1,0 +1,106 @@
+name: Folge eintragen
+description: Neue Folge ergänzen oder Angaben korrigieren – auf Wunsch gleich mit Einstiegszitat
+title: "Folge #"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Eine neue Folge ist draußen oder bei einer Folge stimmt etwas nicht? Trag die Angaben hier ein.
+        Kennst du schon das Einstiegszitat, kannst du es weiter unten gleich mit eintragen. Wir prüfen alles und übernehmen es dann in die Sammlung.
+
+  - type: input
+    id: nummer
+    attributes:
+      label: Folgennummer
+      placeholder: "365"
+    validations:
+      required: true
+
+  - type: input
+    id: titel
+    attributes:
+      label: Titel
+      description: So wie er bei der Folge steht, ohne Nummer. Wir übernehmen ihn in Großbuchstaben.
+      placeholder: z. B. „LIPPENDINO“
+    validations:
+      required: true
+
+  - type: input
+    id: datum
+    attributes:
+      label: Erschienen am
+      description: Format TT.MM.JJJJ
+      placeholder: "29.09.2026"
+    validations:
+      required: true
+
+  - type: input
+    id: dauer
+    attributes:
+      label: Länge
+      description: Format HH:MM:SS, z. B. vom Ende der Zeitleiste im Player
+      placeholder: "01:26:30"
+
+  - type: input
+    id: link
+    attributes:
+      label: Link zur Folge
+      description: In Spotify bei der Folge auf „Teilen“ und „Link kopieren“ tippen.
+      placeholder: https://open.spotify.com/episode/…
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Einstiegszitat (optional)
+        Lass diesen Teil leer, wenn du das Zitat nicht kennst. Es kann auch später über „Zitat vorschlagen“ dazukommen.
+
+  - type: textarea
+    id: zitat
+    attributes:
+      label: Zitat
+      description: Wortlaut oder kurze Beschreibung, so wie es in der Folge vorkommt. Beginnt die Folge ohne Zitat, hier ihre ersten Worte.
+
+  - type: dropdown
+    id: herkunft
+    attributes:
+      label: Woher stammt das Zitat?
+      options:
+        - Song
+        - Film
+        - Person
+        - Sonstiges
+        - Kein Zitat, nur Folgenanfang
+
+  - type: input
+    id: songtitel
+    attributes:
+      label: Songtitel
+      description: Nur bei Songs
+      placeholder: z. B. „HUSTLEN“
+
+  - type: input
+    id: interpret
+    attributes:
+      label: Interpret/in oder Autor/in
+      description: Bei Songs die Band oder der/die Künstler/in, mehrere mit „feat.“, z. B. „B-Tight feat. Sido“. Sonst wer es gesagt oder geschrieben hat.
+      placeholder: z. B. „Luvre47“
+
+  - type: input
+    id: spotify
+    attributes:
+      label: Spotify-Link zum Song
+      description: Nur bei Songs. In Spotify beim Song auf „Teilen“ und „Songlink kopieren“ tippen.
+      placeholder: https://open.spotify.com/track/…
+
+  - type: input
+    id: herkunft_detail
+    attributes:
+      label: Woher, wenn es kein Song ist
+      description: Der Film mit Jahr, die Person oder die Situation. Dafür gibt es keinen Spotify-Link, das Zitat kommt nicht in die Playlist.
+      placeholder: z. B. „Ein Fisch namens Wanda (1988)“
+
+  - type: textarea
+    id: anmerkung
+    attributes:
+      label: Anmerkung
+      description: Optional, z. B. was an einer bestehenden Folge nicht stimmt

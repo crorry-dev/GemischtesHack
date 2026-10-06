@@ -1,0 +1,78 @@
+name: Approve suggestion
+
+# Wer Schreibrechte hat, kommentiert „/approve“ unter einem Vorschlag (optional mit
+# unsure, open oder extra) oder „/approve all“ für alle offenen Vorschläge. Das Skript
+# trägt sie in data/zitate.csv ein, antwortet in jedem Issue und schließt es;
+# danach werden Playlist und Website aktualisiert.
+
+on:
+  issue_comment:
+    types:
+      - created
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: >-
+      ${{ !github.event.issue.pull_request
+      && startsWith(github.event.comment.body, '/approve')
+      && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+    outputs:
+      changed: ${{ steps.apply.outputs.changed }}
+      closed: ${{ steps.apply.outputs.closed }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ISSUE: ${{ github.event.issue.number }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - name: List open suggestions
+        run: gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" > "$RUNNER_TEMP/offen.json"
+      - name: Apply to data/zitate.csv
+        id: apply
+        env:
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: python3 scripts/uebernehmen.py --commit --offen "$RUNNER_TEMP/offen.json" "$GITHUB_EVENT_PATH"
+      - name: Reply on the issues
+        run: |
+          answers="$RUNNER_TEMP/antworten.json"
+          for index in $(seq 0 $(($(jq length "$answers") - 1))); do
+            issue=$(jq -r ".[$index].issue" "$answers")
+            jq -r ".[$index].reply" "$answers" | gh issue comment "$issue" --repo "$GITHUB_REPOSITORY" --body-file -
+            if [ "$(jq -r ".[$index].close" "$answers")" = "true" ]; then
+              gh issue close "$issue" --repo "$GITHUB_REPOSITORY" --reason completed || true
+            fi
+          done
+      - name: Report a failure
+        if: failure()
+        run: >-
+          gh issue comment "$ISSUE" --repo "$GITHUB_REPOSITORY"
+          --body "Beim Übernehmen ist etwas schiefgelaufen, Details im Lauf: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+  playlist:
+    needs: apply
+    if: needs.apply.outputs.changed == 'true'
+    uses: ./.github/workflows/playlist.yml
+    secrets: inherit
+
+  # Auch wenn nur Issues geschlossen wurden: Dann verschwindet „In Prüfung“ von der Website
+  pages:
+    needs: apply
+    if: needs.apply.outputs.changed == 'true' || needs.apply.outputs.closed == 'true'
+    uses: ./.github/workflows/pages.yml
+    permissions:
+      contents: read
+      issues: read
+      pages: write
+      id-token: write

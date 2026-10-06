@@ -1,0 +1,64 @@
+name: Publish GitHub Pages
+
+# Bewusst ohne Pfadfilter: Nach einem Force-Push kennt GitHub keine geänderten Dateien
+# und würde sonst gar nicht veröffentlichen.
+on:
+  push:
+    branches:
+      - main
+  # Neue, geänderte oder geschlossene Vorschläge verändern „In Prüfung“ auf der Website
+  issues:
+    types:
+      - opened
+      - edited
+      - closed
+      - reopened
+      - deleted
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      # Der Playlist-Link steht in scripts/playlist.py, die Website zeigt dann „Playlist auf Spotify folgen“.
+      # Offene Issues aus den Formularen markieren ihre Folgen als „In Prüfung“.
+      - name: Include shared data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p site/data
+          cp -R data/. site/data/
+          jq -n --arg url "$(python3 scripts/playlist.py link)" '{url: $url}' > site/data/playlist.json
+          gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" > "$RUNNER_TEMP/offen.json" || echo "[]" > "$RUNNER_TEMP/offen.json"
+          python3 scripts/vorschlaege.py "$RUNNER_TEMP/offen.json" > site/data/vorschlaege.json
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

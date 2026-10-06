@@ -1,0 +1,74 @@
+name: Zitat vorschlagen
+description: Einstiegszitat einer Folge eintragen oder korrigieren – mit Song oder anderer Herkunft
+title: "Zitat zu Folge #"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Danke fürs Mitmachen! Trag ein, was du selbst gehört oder nachgeprüft hast, und lass Unbekanntes einfach leer.
+        Stammt das Zitat aus einem Song, hilft der Spotify-Link am meisten: Bestätigte Songs kommen automatisch in unsere Playlist.
+        Zitate aus Filmen, Serien oder von Personen sammeln wir genauso, nur eben ohne Songlink.
+        Wir prüfen jeden Vorschlag und übernehmen ihn dann in die Sammlung.
+
+  - type: input
+    id: folge
+    attributes:
+      label: Folge
+      description: Nummer und Titel, z. B. „#270 DEUTSCHE KENNEDY“
+    validations:
+      required: true
+
+  - type: textarea
+    id: zitat
+    attributes:
+      label: Zitat
+      description: Wortlaut oder kurze Beschreibung, so wie es in der Folge vorkommt. Beginnt die Folge ohne Zitat, hier ihre ersten Worte.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: herkunft
+    attributes:
+      label: Woher stammt das Zitat?
+      options:
+        - Song
+        - Film
+        - Person
+        - Sonstiges
+        - Kein Zitat, nur Folgenanfang
+    validations:
+      required: true
+
+  - type: input
+    id: songtitel
+    attributes:
+      label: Songtitel
+      description: Nur bei Songs
+      placeholder: z. B. „HUSTLEN“
+
+  - type: input
+    id: interpret
+    attributes:
+      label: Interpret/in oder Autor/in
+      description: Bei Songs die Band oder der/die Künstler/in, mehrere mit „feat.“, z. B. „B-Tight feat. Sido“. Sonst wer es gesagt oder geschrieben hat.
+      placeholder: z. B. „Luvre47“
+
+  - type: input
+    id: spotify
+    attributes:
+      label: Spotify-Link zum Song
+      description: Nur bei Songs. In Spotify beim Song auf „Teilen“ und „Songlink kopieren“ tippen.
+      placeholder: https://open.spotify.com/track/…
+
+  - type: input
+    id: herkunft_detail
+    attributes:
+      label: Woher, wenn es kein Song ist
+      description: Der Film mit Jahr, die Person oder die Situation. Dafür gibt es keinen Spotify-Link, das Zitat kommt nicht in die Playlist.
+      placeholder: z. B. „Ein Fisch namens Wanda (1988)“
+
+  - type: textarea
+    id: anmerkung
+    attributes:
+      label: Anmerkung
+      description: Optional, z. B. was an einem bestehenden Eintrag nicht stimmt

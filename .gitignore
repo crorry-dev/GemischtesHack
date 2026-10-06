@@ -1,0 +1,64 @@
+# Betriebssysteme und lokale Editoren
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Zugangsdaten bleiben lokal; Vorlagen enthalten nur Platzhalter
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+
+# JavaScript: Abhängigkeiten, Build und Tests
+node_modules/
+dist/
+build/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# Python: lokale Umgebungen, Cache und Tests
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.ipynb_checkpoints/
+
+# GitHub Pages / Jekyll: generierte Website
+_site/
+site/data/
+.jekyll-cache/
+.jekyll-metadata
+.sass-cache/
+vendor/bundle/
+
+# Lokale Laufzeitdateien und temporäre Downloads
+*.log
+/tmp/
+/temp/
+.cache/
+
+# Keine Podcast-Aufnahmen oder Sprachmodelle versehentlich veröffentlichen
+*.mp3
+*.m4a
+*.wav
+*.flac
+*.ogg
+*.aac
+*.pt
+*.pth
+*.onnx
+*.safetensors
