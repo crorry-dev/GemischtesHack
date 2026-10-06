@@ -1,32 +1,26 @@
 #!/usr/bin/env python3
-"""Füllt data/zitate.csv automatisch auf.
+"""Ergänzt data/zitate.csv um Einstiegszitate aus eigenen Audiodateien.
 
-  folgen  Nummer, Titel, Datum und Link aller Folgen über die Spotify-API
   zitate  Einstiegszitat, Zeitmarke und – wenn Felix sie ansagt – Song und
-          Interpret, per Whisper aus eigenen Audiodateien
+          Interpret, per Whisper aus dem Anfang jeder Folge
 
 Beispiele:
-  python3 scripts/csv_befuellen.py folgen
   python3 scripts/csv_befuellen.py zitate ~/hack-audio
   python3 scripts/csv_befuellen.py zitate ~/hack-audio --folgen 300-364 --probelauf
 
-Titel, Datum und Link übernimmt "folgen" immer von Spotify. Alle anderen
-Felder werden nur gefüllt, wenn sie noch leer sind.
+Es werden nur leere Felder gefüllt, Folgen mit Zitat bleiben unverändert.
+Die CSV wird immer im dokumentierten Format gespeichert.
 """
 from __future__ import annotations
 
 import argparse
-import base64
 import csv
 import functools
 import io
 import json
-import os
 import re
 import sys
 import time
-import urllib.error
-import urllib.request
 from bisect import bisect_right
 from collections import defaultdict
 from dataclasses import dataclass
@@ -36,16 +30,12 @@ ROOT = Path(__file__).resolve().parent.parent
 CSV_FILE = ROOT / "data" / "zitate.csv"
 CACHE_DIR = ROOT / ".cache" / "intros"
 
-SHOW_ID = "7BTOsF2boKmlYr76BelijW"
-USER_AGENT = "GemischtesHack-Community (+https://github.com/crorry-dev/GemischtesHack)"
-
 COLUMNS = [
-    "verwendung_id", "folge_id", "folge_titel", "veroeffentlicht_am", "folge_url", "zeitmarke",
-    "zitat_id", "zitat_referenz", "songtitel", "interpret", "spotify_track_uri", "kontext",
+    "verwendung_id", "folge_id", "folge_titel", "veroeffentlicht_am", "dauer", "folge_url", "folge_datei",
+    "zeitmarke", "zitat_id", "zitat_referenz", "songtitel", "interpret", "spotify_track_uri", "kontext",
     "quellen", "pruefstatus", "beitrag_von", "namensnennung", "lizenz",
 ]
 COLUMN_ALIASES = {"zitat": "zitat_referenz"}
-EPISODE_COLUMNS = ["folge_id", "folge_titel", "veroeffentlicht_am", "dauer_sekunden", "folge_url"]
 AUDIO_SUFFIXES = {".mp3", ".m4a", ".mp4", ".aac", ".wav", ".flac", ".ogg", ".opus", ".webm"}
 
 
@@ -113,128 +103,6 @@ def save(args: argparse.Namespace, rows: list[dict], extra: list[str]) -> None:
     else:
         write_csv(args.csv, rows, extra)
         print(f"Gespeichert: {args.csv}")
-
-
-# --- Netzwerk ----------------------------------------------------------------
-
-def fetch(url: str, headers: dict | None = None, data: bytes | None = None, attempts: int = 4) -> bytes:
-    request = urllib.request.Request(url, data=data, headers={"User-Agent": USER_AGENT, **(headers or {})})
-    for attempt in range(1, attempts + 1):
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                return response.read()
-        except urllib.error.HTTPError as error:
-            if error.code != 429 or attempt == attempts:
-                raise
-            retry_after = error.headers.get("Retry-After", "")
-            wait = int(retry_after) if retry_after.isdigit() else 30
-            print(f"  zu viele Anfragen, warte {wait} s …", flush=True)
-            time.sleep(wait)
-
-
-def load_env() -> None:
-    env_file = ROOT / ".env"
-    if not env_file.exists():
-        return
-    for line in env_file.read_text(encoding="utf-8").splitlines():
-        key, separator, value = line.partition("=")
-        if separator and not key.strip().startswith("#"):
-            os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
-
-
-# --- Folgen von Spotify --------------------------------------------------------
-
-def spotify_episodes(market: str) -> list[dict]:
-    load_env()
-    client_id = os.environ.get("SPOTIFY_CLIENT_ID", "")
-    client_secret = os.environ.get("SPOTIFY_CLIENT_SECRET", "")
-    if not client_id or not client_secret:
-        sys.exit("SPOTIFY_CLIENT_ID und SPOTIFY_CLIENT_SECRET fehlen, siehe .env.example.")
-
-    credentials = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
-    try:
-        token = json.loads(fetch(
-            "https://accounts.spotify.com/api/token",
-            headers={"Authorization": f"Basic {credentials}"},
-            data=b"grant_type=client_credentials",
-        ))["access_token"]
-        url = f"https://api.spotify.com/v1/shows/{SHOW_ID}/episodes?market={market}&limit=50"
-        episodes = []
-        while url:
-            page = json.loads(fetch(url, headers={"Authorization": f"Bearer {token}"}))
-            episodes += [item for item in page["items"] if item]
-            url = page["next"]
-    except urllib.error.HTTPError as error:
-        message = error.read().decode(errors="replace")[:300]
-        if error.code == 403:
-            message += "\nApps im Development Mode funktionieren nur, wenn der Inhaber Spotify Premium hat."
-        sys.exit(f"Spotify-Anfrage fehlgeschlagen ({error.code}): {message}")
-    return episodes
-
-
-def split_name(name: str) -> tuple[int | None, str]:
-    name = " ".join(name.split())
-    match = re.match(r"#\s*(\d+)\s+(.+)", name)
-    return (int(match[1]), match[2]) if match else (None, name)
-
-
-def update_episodes(args: argparse.Namespace) -> None:
-    rows, extra = read_csv(args.csv)
-    by_episode = defaultdict(list)
-    for row in rows:
-        by_episode[row["folge_id"]].append(row)
-
-    episodes = spotify_episodes(args.markt)
-    added = changed = skipped = 0
-    for episode in episodes:
-        number, title = split_name(episode["name"])
-        if number is None:
-            skipped += 1
-            continue
-        values = {
-            "folge_titel": title,
-            "veroeffentlicht_am": episode["release_date"],
-            "folge_url": episode["external_urls"]["spotify"],
-        }
-        matches = by_episode[str(number)]
-        if not matches:
-            row = dict.fromkeys(COLUMNS, "")
-            row.update(folge_id=str(number), pruefstatus="offen")
-            rows.append(row)
-            matches.append(row)
-            added += 1
-        elif any(row[key] != value for row in matches for key, value in values.items()):
-            changed += 1
-        for row in matches:
-            row.update(values)
-            row["pruefstatus"] = row["pruefstatus"] or "offen"
-
-    print(f"{len(episodes)} Folgen bei Spotify: {added} neu, {changed} aktualisiert, "
-          f"{skipped} ohne Folgennummer übersprungen.")
-    save(args, rows, extra)
-    if not args.probelauf:
-        episode_file = args.csv.with_name("folgen.csv")
-        write_episode_list(episode_file, episodes)
-        print(f"Gespeichert: {episode_file}")
-
-
-def write_episode_list(path: Path, episodes: list[dict]) -> None:
-    # Eine Zeile pro Folge, für Zeitstrahl und Längen auf der Website
-    by_number = {}
-    for episode in episodes:
-        number, title = split_name(episode["name"])
-        if number is not None and number not in by_number:
-            by_number[number] = {
-                "folge_id": str(number),
-                "folge_titel": title,
-                "veroeffentlicht_am": episode["release_date"],
-                "dauer_sekunden": str(round((episode.get("duration_ms") or 0) / 1000)),
-                "folge_url": episode["external_urls"]["spotify"],
-            }
-    with path.open("w", encoding="utf-8", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=EPISODE_COLUMNS, lineterminator="\n")
-        writer.writeheader()
-        writer.writerows(by_number[number] for number in sorted(by_number))
 
 
 # --- Einstiegszitate -----------------------------------------------------------
@@ -488,12 +356,8 @@ def main() -> None:
     common.add_argument("--csv", type=Path, default=CSV_FILE, help="CSV-Datei (Standard: data/zitate.csv)")
     common.add_argument("--probelauf", action="store_true", help="nur anzeigen, nichts speichern")
 
-    parser = argparse.ArgumentParser(description="Füllt data/zitate.csv automatisch auf.")
+    parser = argparse.ArgumentParser(description="Ergänzt data/zitate.csv um Einstiegszitate.")
     commands = parser.add_subparsers(dest="command", required=True)
-
-    episodes = commands.add_parser("folgen", parents=[common], help="Folgen über die Spotify-API eintragen")
-    episodes.add_argument("--markt", default="DE", help="Spotify-Markt (Standard: DE)")
-    episodes.set_defaults(run=update_episodes)
 
     quotes = commands.add_parser("zitate", parents=[common], help="Einstiegszitate aus Audiodateien erkennen")
     quotes.add_argument("ordner", type=Path, help="Ordner mit Audiodateien, Folgennummer im Dateinamen")

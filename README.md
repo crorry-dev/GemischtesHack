@@ -35,8 +35,8 @@ nicht einem Song. So gehen Wiederholungen nicht verloren.
 
 | Feld | Zweck |
 | --- | --- |
-| Folgen-ID, Titel, Veröffentlichungsdatum | Folge eindeutig identifizieren; Datum im Format `YYYY-MM-DD` |
-| Folgenlink und Zeitmarke | Fundstelle nachprüfen; Zeitmarke im Format `HH:MM:SS` |
+| Folgen-ID, Titel, Veröffentlichungsdatum, Länge | Folge eindeutig identifizieren; Datum im Format `YYYY-MM-DD`, Länge als `HH:MM:SS` |
+| Folgenlink, Folgendatei und Zeitmarke | Fundstelle nachprüfen; Zeitmarke im Format `HH:MM:SS`; Verweis auf die Datei mit Beschreibung und Notizen zur Folge |
 | Zitat-ID und Referenz | Wiederholungen desselben Zitats zusammenführen; bevorzugt Beschreibung und Fundstelle statt Songtext |
 | Songtitel und Interpret/in | Vermutete oder bestätigte Zuordnung |
 | Spotify-Track-URI bzw. Link | Exakte Aufnahme identifizieren, sofern verfügbar |
@@ -68,8 +68,8 @@ stehen auf `offen` oder `vermutet`, bis jemand sie geprüft hat.
 | CSV-Spalten | Eintragung |
 | --- | --- |
 | `verwendung_id` | Eindeutige, dauerhaft beibehaltene ID für diese Verwendung |
-| `folge_id`, `folge_titel`, `veroeffentlicht_am` | Stabile Folgen-ID, Titel und Datum (`YYYY-MM-DD`) |
-| `folge_url`, `zeitmarke` | Link zur Folge und Fundstelle (`HH:MM:SS`) |
+| `folge_id`, `folge_titel`, `veroeffentlicht_am`, `dauer` | Stabile Folgen-ID, Titel, Datum (`YYYY-MM-DD`) und Länge (`HH:MM:SS`) |
+| `folge_url`, `folge_datei`, `zeitmarke` | Link zur Folge, Pfad der Folgendatei (z. B. `folgen/270.md`) und Fundstelle (`HH:MM:SS`) |
 | `zitat_id`, `zitat_referenz` | Stabile Zitat-ID; bei Wiederholungen dieselbe ID nutzen. Referenz bevorzugt als Beschreibung in eigenen Worten, nicht als Songtext |
 | `songtitel`, `interpret` | Zugeordneter oder vermuteter Song und Interpret/in |
 | `spotify_track_uri` | Exakte Aufnahme als `spotify:track:<Track-ID>`; bei fehlender Spotify-Verfügbarkeit leer lassen |
@@ -99,49 +99,54 @@ Synchronisierung erstellt werden:
 Die CSV ist eine Datenquelle, kein direkter Spotify-Import: Sie erstellt oder
 aktualisiert selbst noch keine Playlist und benötigt keine Zugangsdaten.
 
-### CSV automatisch befüllen
+### Einstiegszitate aus Audiodateien
 
-Damit nicht jede Folge von Hand angelegt werden muss, füllt
-[`scripts/csv_befuellen.py`](scripts/csv_befuellen.py) die Datei
-`data/zitate.csv` auf. Nötig ist nur Python ab Version 3.9.
+[`scripts/csv_befuellen.py`](scripts/csv_befuellen.py) hilft beim Erfassen
+der Einstiegszitate. Nötig sind Python ab Version 3.9 und für die
+Spracherkennung `faster-whisper` (`pip install faster-whisper`, am besten in
+einer `.venv`).
 
 ```sh
-python3 scripts/csv_befuellen.py folgen
 python3 scripts/csv_befuellen.py zitate ORDNER
 ```
 
-- `folgen` holt Nummer, Titel, Veröffentlichungsdatum und Link aller Folgen
-  über die Spotify-Web-API und legt fehlende Folgen mit Status `offen` an.
-  Titel, Datum und Link werden dabei immer von Spotify übernommen; Folgen ohne
-  Nummer (etwa „5 schnelle Fragen an …“) werden übersprungen. Dafür im
-  [Spotify-Developer-Dashboard](https://developer.spotify.com/dashboard) eine
-  App für die Web API anlegen (als Redirect-URI reicht
-  `http://127.0.0.1:8888/callback`, sie wird nicht benutzt) und Client-ID und
-  Client-Secret in eine lokale `.env` eintragen, Vorlage ist
-  [`.env.example`](.env.example). Apps im Development Mode funktionieren nur,
-  solange der Inhaber Spotify Premium hat. Zusätzlich schreibt `folgen` die
-  Datei `data/folgen.csv` mit Nummer, Titel, Datum, Länge und Link jeder Folge;
-  die Website nutzt sie für Kalender und Längen. Diese Datei wird bei jedem
-  Lauf neu geschrieben und nicht von Hand bearbeitet.
-- `zitate ORDNER` transkribiert den Anfang eigener Audiodateien lokal mit
-  Whisper (`pip install faster-whisper`, am besten in einer `.venv`) und
-  zerlegt ihn in Zitat, Ansage („Das, meine Damen und Herren, war …“) und
-  Begrüßung. Eingetragen werden Zitat, Zeitmarke und als Beleg der
-  Spotify-Link mit Zeitmarke. Nennt Felix Song und Interpret, landen beide mit
-  Status `vermutet` in der CSV, sonst bleibt der Status `offen`. Die
-  Folgennummer muss im Dateinamen stehen, z. B. `079.mp3` oder
-  `#79 WIR ROCKEN DAS.m4a`. Über die Spotify-API gibt es keine Audiodateien
-  der Folgen.
+Das Skript transkribiert den Anfang eigener Audiodateien lokal mit Whisper und
+zerlegt ihn in Zitat, Ansage („Das, meine Damen und Herren, war …“) und
+Begrüßung. Eingetragen werden Zitat, Zeitmarke und, wenn die Folge einen Link
+hat, der Link mit Zeitmarke als Beleg. Nennt Felix Song und Interpret, landen
+beide mit Status `vermutet` in der CSV, sonst bleibt der Status `offen`. Die
+Folgennummer muss im Dateinamen stehen, z. B. `079.mp3` oder
+`#79 WIR ROCKEN DAS.m4a`; ergänzt werden nur Folgen, die schon eine Zeile in
+der CSV haben.
 
 Mit `--folgen 300-364` lassen sich einzelne Folgen auswählen, mit
-`--probelauf` wird nichts gespeichert. `zitate` füllt nur leere Felder und
+`--probelauf` wird nichts gespeichert. Das Skript füllt nur leere Felder und
 überspringt Folgen, für die schon ein Zitat eingetragen ist; Zwischenergebnisse
 liegen in `.cache/`. Die Erkennung ist eine Vorarbeit: Transkripte enthalten
 Hörfehler, gerade bei Namen und Songtiteln, deshalb vor `bestätigt` die Stelle
-selbst nachhören. Gespeichert
-wird immer im oben beschriebenen Format (Komma, Datum als `YYYY-MM-DD`); Dateien,
-die Excel mit Semikolon und Datum als `TT.MM.JJJJ` gespeichert hat, liest das
-Skript ebenfalls.
+selbst nachhören. Gespeichert wird immer im oben beschriebenen Format (Komma,
+Datum als `YYYY-MM-DD`); Dateien, die Excel mit Semikolon und Datum als
+`TT.MM.JJJJ` gespeichert hat, liest das Skript ebenfalls.
+
+### Folgendateien
+
+Zu jeder Folge kann es eine Datei `data/folgen/<nr>.md` geben, etwa für eine
+kurze Beschreibung oder Notizen. In der CSV verweist `folge_datei` darauf
+(z. B. `folgen/270.md`); die Website zeigt den Abschnitt `## Beschreibung` in
+der Detailansicht an.
+
+```markdown
+---
+folge: 270
+titel: "DEUTSCHE KENNEDY"
+---
+
+# #270 DEUTSCHE KENNEDY
+
+## Beschreibung
+
+Worum es in der Folge geht, in eigenen Worten.
+```
 
 ### GitHub Pages
 
