@@ -22,11 +22,11 @@ Geplant sind:
   Interpreten, einschließlich Häufigkeiten und zeitlichem Verlauf.
 
 **Aktueller Stand:** Dieses Repository enthält die Projektbeschreibung,
-Ignore-Regeln, Lizenzen, eine [CSV für die Datensammlung](data/zitate.csv),
-eine erste statische Website unter [`site/`](site/) und ein
-[Skript](scripts/csv_befuellen.py), das die CSV automatisch befüllt. Bestätigte
-Zuordnungen gibt es noch keine. Playlist und Veröffentlichung müssen noch
-ergänzt bzw. eingerichtet werden.
+Ignore-Regeln, Lizenzen, eine [CSV mit allen nummerierten Folgen](data/zitate.csv),
+die Website unter [`site/`](site/) und ein
+[Skript](scripts/csv_befuellen.py), das Einstiegszitate aus eigenen
+Audiodateien erkennt. Zitate und Songs sind noch nicht erfasst, die Playlist
+steht noch aus.
 
 ### Was wir pro Verwendung erfassen wollen
 
