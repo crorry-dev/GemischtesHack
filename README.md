@@ -150,22 +150,23 @@ Worum es in der Folge geht, in eigenen Worten.
 
 ### GitHub Pages
 
-Die Website unter [`site/`](site/) ist statisch und kommt ohne Build-Schritt,
-Bibliotheken oder externe Schriften aus. Sie zeigt alle Folgen mit Suche und
-Filtern nach Jahr, Prüfstatus und Interpret/in, Kennzahlen, einen Kalender
-aller Folgen, Folgen pro Jahr, die Länge der Folgen und die meistzitierten
-Interpret:innen; jede Folge hat eine Detailansicht mit Belegen und einem Link,
-um Ergänzungen als Issue vorzuschlagen. Filter und geöffnete Folge stehen in
-der Adresse, sodass sich jede Ansicht als Link teilen lässt. Der eingebettete
-Spotify-Player wird erst nach einem Klick geladen.
+Die Website unter [`site/`](site/) ist statisch, fürs Handy gebaut und kommt
+ohne Build-Schritt, Bibliotheken oder externe Schriften aus. Oben stehen der
+Fortschritt und eine Suche mit Status-Tabs, weitere Filter (Jahr,
+Interpret/in, Sortierung) liegen in einem eigenen Panel. Darunter folgen ein
+Überblick mit Kennzahlen und einem Zeitstrahl aller Folgen, auf Wunsch weitere
+Statistiken, und die nach Jahren gruppierte Folgenliste. Jede Folge öffnet
+eine Detailansicht mit Zitat, Belegen, Beschreibung aus der Folgendatei und
+einem Link, um Ergänzungen als Issue vorzuschlagen. Filter und geöffnete
+Folge stehen in der Adresse, sodass sich jede Ansicht teilen lässt. Der
+eingebettete Spotify-Player lädt erst nach einem Klick.
 
 Lokal lässt sich die Seite aus dem Repository-Verzeichnis mit
 `python3 -m http.server 8000` starten und unter
-`http://localhost:8000/site/` ansehen; sie liest dann direkt `data/zitate.csv`
-und, falls vorhanden, `data/folgen.csv`. Beim Push auf `main` kopiert der
-Workflow [`.github/workflows/pages.yml`](.github/workflows/pages.yml) die
-CSV-Dateien aus `data/` in das Website-Artefakt und veröffentlicht es über
-GitHub Pages. Änderungen an Daten oder Website lösen die Veröffentlichung aus;
+`http://localhost:8000/site/` ansehen; sie liest dann direkt aus `data/`.
+Beim Push auf `main` kopiert der Workflow
+[`.github/workflows/pages.yml`](.github/workflows/pages.yml) den Ordner
+`data/` in das Website-Artefakt und veröffentlicht es über GitHub Pages. Änderungen an Daten oder Website lösen die Veröffentlichung aus;
 alternativ lässt sich der Workflow manuell starten. In den
 Repository-Einstellungen muss Pages als Quelle **GitHub Actions** verwenden.
 

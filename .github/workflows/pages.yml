@@ -26,7 +26,7 @@ jobs:
       - name: Include shared data
         run: |
           mkdir -p site/data
-          cp data/*.csv site/data/
+          cp -R data/. site/data/
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:

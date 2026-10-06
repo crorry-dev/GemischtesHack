@@ -1,4 +1,4 @@
-// Laden und Aufbereiten der CSV-Dateien aus data/
+// Laden und Aufbereiten der Daten aus data/
 
 export const STATUSES = [
   { key: "offen", label: "Offen", hint: "Noch niemand hat das Zitat zugeordnet." },
@@ -7,35 +7,46 @@ export const STATUSES = [
   { key: "kein Song", label: "Kein Song", hint: "Das Zitat stammt nicht aus einem Song." },
 ];
 
-// Reihenfolge beim Stapeln von der Grundlinie aus
-export const STACK_ORDER = ["bestätigt", "vermutet", "kein Song", "offen"];
-
 const STATUS_RANK = { "bestätigt": 3, "vermutet": 2, "kein Song": 1, "offen": 0 };
 const COLUMN_ALIASES = { zitat: "zitat_referenz" };
-const dayFormat = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-const longDayFormat = new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-const weekdayFormat = new Intl.DateTimeFormat("de-DE", { weekday: "long" });
+const shortDate = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "short" });
+const fullDate = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+const longDate = new Intl.DateTimeFormat("de-DE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const weekday = new Intl.DateTimeFormat("de-DE", { weekday: "long" });
 
 export async function loadData() {
-  const [usageText, episodeText] = await Promise.all([fetchText("zitate.csv"), fetchText("folgen.csv", true)]);
-  const usages = toRecords(parseCsv(usageText), ["folge_id"]);
-  const episodeRows = episodeText ? toRecords(parseCsv(episodeText), ["folge_id"]) : [];
-  return buildEpisodes(usages, episodeRows);
+  const text = await fetchText("zitate.csv");
+  if (text === null) throw new Error("Die Datensammlung konnte nicht geladen werden.");
+  return buildEpisodes(toRecords(parseCsv(text)));
 }
 
 // Auf GitHub Pages liegen die Daten unter data/, bei der lokalen Vorschau aus dem
-// Repo-Wurzelverzeichnis eine Ebene höher.
-async function fetchText(name, optional = false) {
+// Repository-Verzeichnis eine Ebene höher.
+async function fetchText(path) {
   for (const base of ["data/", "../data/"]) {
     try {
-      const response = await fetch(base + name, { cache: "no-cache" });
+      const response = await fetch(base + path, { cache: "no-cache" });
       if (response.ok) return await response.text();
     } catch {
       // nächsten Pfad probieren
     }
   }
-  if (optional) return null;
-  throw new Error(`${name} konnte nicht geladen werden.`);
+  return null;
+}
+
+// Beschreibung aus data/folgen/<nr>.md, erst beim Öffnen einer Folge geladen
+const textCache = new Map();
+export function loadEpisodeText(file) {
+  if (!file || !/^folgen\/[\w-]+\.md$/.test(file)) return Promise.resolve(null);
+  if (!textCache.has(file)) {
+    textCache.set(file, fetchText(file).then((text) => {
+      if (!text) return null;
+      const body = text.replace(/^---\n[\s\S]*?\n---\n/, "");
+      const match = body.match(/^## Beschreibung\s*\n([\s\S]*?)(?=^## |(?![\s\S]))/m);
+      return match ? match[1].trim() : null;
+    }));
+  }
+  return textCache.get(file);
 }
 
 export function parseCsv(text) {
@@ -82,11 +93,10 @@ export function parseCsv(text) {
   return rows;
 }
 
-function toRecords(rows, required) {
+function toRecords(rows) {
   const [header = [], ...body] = rows;
   const names = header.map((name) => COLUMN_ALIASES[name.trim()] || name.trim());
-  const missing = required.filter((column) => !names.includes(column));
-  if (missing.length > 0) throw new Error(`In der CSV fehlen Spalten: ${missing.join(", ")}.`);
+  if (!names.includes("folge_id")) throw new Error("In der CSV fehlt die Spalte folge_id.");
   return body.map((values) => {
     const record = {};
     names.forEach((name, index) => {
@@ -96,61 +106,52 @@ function toRecords(rows, required) {
   });
 }
 
-function buildEpisodes(usageRows, episodeRows) {
+function buildEpisodes(records) {
   const byId = new Map();
-  const episodeFor = (rawId) => {
-    const id = normalizeId(rawId);
-    if (!id) return null;
+  for (const record of records) {
+    const id = normalizeId(record.folge_id);
+    if (!id) continue;
     if (!byId.has(id)) {
-      const number = /^\d+$/.test(id) ? Number(id) : Infinity;
-      byId.set(id, { id, number, title: "", dateText: "", duration: null, url: "", usages: [] });
+      byId.set(id, {
+        id,
+        number: /^\d+$/.test(id) ? Number(id) : Infinity,
+        title: "",
+        dateText: "",
+        duration: null,
+        url: "",
+        file: "",
+        usages: [],
+      });
     }
-    return byId.get(id);
-  };
-
-  for (const record of episodeRows) {
-    const episode = episodeFor(record.folge_id);
-    if (!episode) continue;
-    episode.title = record.folge_titel || "";
-    episode.dateText = isoDate(record.veroeffentlicht_am);
-    episode.duration = Number(record.dauer_sekunden) || null;
-    episode.url = record.folge_url || "";
-  }
-
-  for (const record of usageRows) {
-    const episode = episodeFor(record.folge_id);
-    if (!episode) continue;
+    const episode = byId.get(id);
     episode.title ||= record.folge_titel || "";
     episode.dateText ||= isoDate(record.veroeffentlicht_am || "");
+    episode.duration ||= timeToSeconds(record.dauer || "");
     episode.url ||= record.folge_url || "";
-    episode.usages.push(toUsage(record, episode));
+    episode.file ||= record.folge_datei || "";
+    episode.usages.push(toUsage(record));
   }
-
   const episodes = [...byId.values()];
   for (const episode of episodes) finishEpisode(episode);
   return episodes.sort((a, b) => a.number - b.number || a.id.localeCompare(b.id));
 }
 
-function toUsage(record, episode) {
+function toUsage(record) {
   const status = (record.pruefstatus || "").trim().toLocaleLowerCase("de");
   const time = record.zeitmarke || "";
   return {
-    id: record.verwendung_id || "",
     quote: record.zitat_referenz || "",
-    quoteId: record.zitat_id || "",
     time,
     seconds: timeToSeconds(time),
     song: record.songtitel || "",
     artist: record.interpret || "",
     trackUrl: spotifyTrackUrl(record.spotify_track_uri || ""),
-    trackRaw: record.spotify_track_uri || "",
     context: record.kontext || "",
     sources: (record.quellen || "").split("|").map((source) => source.trim()).filter(Boolean),
     status: STATUS_RANK[status] === undefined ? "offen" : status,
     contributor: record.beitrag_von || "",
     attribution: record.namensnennung || "",
     license: record.lizenz || "",
-    episode,
   };
 }
 
@@ -164,6 +165,8 @@ function finishEpisode(episode) {
     "offen",
   );
   episode.hasQuote = episode.usages.some((usage) => usage.quote);
+  episode.quote = (episode.usages.find((usage) => usage.quote) || {}).quote || "";
+  episode.song = episode.usages.find((usage) => usage.song) || null;
   episode.artists = [...new Set(episode.usages.map((usage) => usage.artist).filter(Boolean))];
   episode.titleKey = normalizeText(episode.title);
   episode.search = normalizeText([
@@ -220,16 +223,20 @@ export function episodeLink(episode, seconds) {
   return seconds ? `${episode.url.split("?")[0]}?t=${seconds}` : episode.url;
 }
 
+export function formatShortDate(date) {
+  return date ? shortDate.format(date) : "";
+}
+
 export function formatDate(date) {
-  return date ? dayFormat.format(date) : "Datum unbekannt";
+  return date ? fullDate.format(date) : "";
 }
 
 export function formatLongDate(date) {
-  return date ? longDayFormat.format(date) : "Datum unbekannt";
+  return date ? longDate.format(date) : "";
 }
 
 export function formatWeekday(date) {
-  return weekdayFormat.format(date);
+  return weekday.format(date);
 }
 
 export function formatDuration(seconds) {
@@ -245,4 +252,8 @@ export function formatNumber(value, digits = 0) {
 
 export function statusInfo(key) {
   return STATUSES.find((status) => status.key === key) || STATUSES[0];
+}
+
+export function statusClass(status) {
+  return `is-${status.toLowerCase().replace(/\s+/g, "-").replace("ä", "ae")}`;
 }
