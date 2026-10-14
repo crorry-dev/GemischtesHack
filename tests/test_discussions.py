@@ -115,6 +115,15 @@ class ProposalTests(unittest.TestCase):
         source["body"] += "\nKorrektur"
         self.assertNotEqual(first, sammellauf.marker(record, approval))
 
+    def test_graphql_bot_login_prevents_repeated_failure_comments(self):
+        record = discussion()
+        approval = comment()
+        reply = comment(sammellauf.marker(record, approval), 30, "github-actions")
+        reply["user"] = discussions.user({"login": "github-actions"})
+        self.assertEqual(reply["user"]["type"], "Bot")
+        record["_comments"] = [approval, reply]
+        self.assertEqual(sammellauf.select([record], {10: record["_comments"]}, lambda _: True), [])
+
     def test_pending_discussions_use_discussion_url(self):
         entries = vorschlaege.pending([discussion()])
         self.assertEqual(entries, [{"folge": 288, "issue": 10, "url": URL, "art": "zitat"}])

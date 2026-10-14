@@ -56,7 +56,7 @@ def select(issues, comments, can_write, everything=False):
             continue
         stamp = marker(issue, approval)
         already_replied = any(
-            comment["user"]["login"] == "github-actions[bot]"
+            comment["user"]["login"] in {"github-actions", "github-actions[bot]"}
             and comment["user"].get("type") == "Bot"
             and stamp in (comment.get("body") or "")
             for comment in comments[issue["number"]]
