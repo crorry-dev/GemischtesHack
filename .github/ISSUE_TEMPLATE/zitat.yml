@@ -8,7 +8,7 @@ body:
         Danke fürs Mitmachen! Trag ein, was du selbst gehört oder nachgeprüft hast, und lass Unbekanntes einfach leer.
         Stammt das Zitat aus einem Song, hilft der Spotify-Link am meisten: Bestätigte Songs kommen automatisch in unsere Playlist.
         Zitate aus Filmen, Serien oder von Personen sammeln wir genauso, nur eben ohne Songlink.
-        Wir prüfen jeden Vorschlag und übernehmen ihn dann in die Sammlung.
+        Wir prüfen jeden Vorschlag und veröffentlichen freigegebene Vorschläge gesammelt einmal pro Woche, bei Bedarf auch früher manuell.
 
   - type: input
     id: folge

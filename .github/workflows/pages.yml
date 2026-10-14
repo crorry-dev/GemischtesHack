@@ -1,19 +1,15 @@
 name: Publish GitHub Pages
 
-# Bewusst ohne Pfadfilter: Nach einem Force-Push kennt GitHub keine geänderten Dateien
-# und würde sonst gar nicht veröffentlichen.
 on:
   push:
     branches:
       - main
-  # Neue, geänderte oder geschlossene Vorschläge verändern „In Prüfung“ auf der Website
-  issues:
-    types:
-      - opened
-      - edited
-      - closed
-      - reopened
-      - deleted
+    paths:
+      - site/**
+      - data/**
+      - scripts/**
+      - .github/workflows/pages.yml
+  # Issue-Änderungen werden nur beim Wochenlauf oder manuellen Start veröffentlicht.
   workflow_dispatch:
   workflow_call:
 
@@ -42,7 +38,7 @@ jobs:
           mkdir -p site/data
           cp -R data/. site/data/
           jq -n --arg url "$(python3 scripts/playlist.py link)" '{url: $url}' > site/data/playlist.json
-          gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" > "$RUNNER_TEMP/offen.json" || echo "[]" > "$RUNNER_TEMP/offen.json"
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" | jq 'add' > "$RUNNER_TEMP/offen.json"
           python3 scripts/vorschlaege.py "$RUNNER_TEMP/offen.json" > site/data/vorschlaege.json
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3

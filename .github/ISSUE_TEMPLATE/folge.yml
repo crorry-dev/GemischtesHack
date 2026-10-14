@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Eine neue Folge ist draußen oder bei einer Folge stimmt etwas nicht? Trag die Angaben hier ein.
-        Kennst du schon das Einstiegszitat, kannst du es weiter unten gleich mit eintragen. Wir prüfen alles und übernehmen es dann in die Sammlung.
+        Kennst du schon das Einstiegszitat, kannst du es weiter unten gleich mit eintragen. Wir prüfen alles und veröffentlichen Freigaben gesammelt einmal pro Woche, bei Bedarf auch früher manuell.
 
   - type: input
     id: nummer

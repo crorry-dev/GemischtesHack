@@ -1,7 +1,7 @@
 """Übernimmt einen Vorschlag aus einem Issue-Formular in data/zitate.csv.
 
-Läuft über .github/workflows/uebernehmen.yml, sobald jemand mit Schreibrechten
-„/approve“ unter ein Issue kommentiert. Ohne Zusatz gilt der Vorschlag als bestätigt
+Der Wochenlauf in .github/workflows/uebernehmen.yml sammelt Freigaben per
+„/approve“ von Personen mit Schreibrechten. Ohne Zusatz gilt der Vorschlag als bestätigt
 (bei einem Song ohne Titel und Link als offen). Dahinter optional:
 
   all      alle offenen Vorschläge auf einmal übernehmen, nicht nur dieses Issue
@@ -96,6 +96,8 @@ def read_form(body):
     """Erkennt das Formular am Aufbau des Issues: (Name, Felder)."""
     best = ("", {})
     for path in sorted(sammlung.FORMS_PATH.glob("*.yml")):
+        if path.stem not in {"zitat", "folge"}:
+            continue
         fields = parse_body(body, form_labels(path))
         if len(fields) > len(best[1]):
             best = (path.stem, fields)
@@ -279,6 +281,17 @@ def apply_quote(fields, columns, rows, status, additional):
         origin = "" if kind == "Song" else origin_text(kind, one_line(fields.get("herkunft_detail")))
     known = bool(origin) or bool(song or track)
 
+    data = {
+        "zitat": quote,
+        "songtitel": song,
+        "interpret": artist,
+        "spotify_link": f"https://open.spotify.com/track/{track}" if track else "",
+        "herkunft": origin,
+        "pruefstatus": status or ("bestätigt" if known else "offen"),
+    }
+    if additional and any(all(row.get(key, "") == value for key, value in data.items()) for row in episode):
+        return Outcome(False, "Das zusätzliche Zitat steht schon genau so in der Sammlung.")
+
     target = episode[0]
     if additional:
         target = {key: (episode[0].get(key, "") if key in EPISODE_COLUMNS else "") for key in columns}
@@ -288,14 +301,6 @@ def apply_quote(fields, columns, rows, status, additional):
         )
         rows.insert(rows.index(episode[-1]) + 1, target)
 
-    data = {
-        "zitat": quote,
-        "songtitel": song,
-        "interpret": artist,
-        "spotify_link": f"https://open.spotify.com/track/{track}" if track else "",
-        "herkunft": origin,
-        "pruefstatus": status or ("bestätigt" if known else "offen"),
-    }
     changes = [key for key, value in data.items() if target.get(key, "") != value]
     if not changes and not additional:
         return Outcome(False, "Das Zitat steht schon genau so in der Sammlung, es gibt nichts zu ändern.")

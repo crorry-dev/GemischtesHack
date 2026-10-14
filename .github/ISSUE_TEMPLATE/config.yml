@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Sammlung durchsuchen
+    url: https://crorry-dev.github.io/GemischtesHack/
+    about: Erst nachsehen, ob das Zitat oder die Folge schon erfasst ist.
+  - name: Einstieg für Mitwirkende
+    url: https://github.com/crorry-dev/GemischtesHack/blob/main/CONTRIBUTING.md
+    about: Ohne Code Zitate zuordnen oder mit einer kleinen Programmieraufgabe einsteigen.

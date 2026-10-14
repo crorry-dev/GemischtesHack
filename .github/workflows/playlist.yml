@@ -7,9 +7,12 @@ on:
   push:
     branches:
       - main
-  # einmal am Tag: korrigiert Umsortierungen von Hand und meldet eine abgelaufene Anmeldung
-  schedule:
-    - cron: "17 5 * * *"
+    paths:
+      - data/zitate.csv
+      - scripts/playlist.py
+      - scripts/sammlung.py
+      - .github/workflows/playlist.yml
+  # Der Wochenlauf ruft diesen Workflow mit auf.
   workflow_dispatch:
   workflow_call:
 

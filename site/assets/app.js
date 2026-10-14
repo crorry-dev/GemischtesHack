@@ -21,6 +21,7 @@ import {
   statusInfo,
 } from "./data.js";
 import { hideTooltip, renderBars, renderDurations, renderTable, renderTimeline, renderYearBars } from "./charts.js";
+import { collectionStats, yearlyStats } from "./statistics.js";
 
 const REPO = "https://github.com/crorry-dev/GemischtesHack";
 const CHUNK = 40;
@@ -154,7 +155,7 @@ function setupReveal() {
       show(entry.target);
       observer.unobserve(entry.target);
     }
-  }, { threshold: 0.1, rootMargin: "0px 0px -30px 0px" });
+  }, { threshold: 0, rootMargin: "0px 0px -30px 0px" });
   items.forEach((item) => observer.observe(item));
 }
 
@@ -667,6 +668,63 @@ function renderMore(animate) {
   }
 
   renderFacts(filtered);
+  renderCollectionStats(filtered);
+}
+
+function renderCollectionStats(list) {
+  const stats = collectionStats(list);
+  const rows = yearlyStats(list);
+  $("#collection-health").replaceChildren(...[
+    ["Zuordnung bestätigt", stats.percent === null ? "–" : `${stats.percent} %`,
+      `${formatNumber(stats.confirmed)} von ${formatNumber(stats.possible)} Folgen mit möglichem Zitat`],
+    ["Zitat fehlt noch", formatNumber(stats.missing), "Folgen zum Miträtseln in der aktuellen Auswahl"],
+    ["Typische Folgenlänge", stats.median === null ? "–" : formatDuration(stats.median, { exact: false }),
+      `Median aus ${formatNumber(stats.timed)} Folgen mit Laufzeit`],
+    ["Spotify-Link fehlt", formatNumber(stats.missingLinks), "bei bestätigten Song-Zuordnungen"],
+  ].map(([label, value, note]) => {
+    const fact = element("div", "fact");
+    const description = element("dd");
+    description.append(element("strong", "", value), element("small", "", note));
+    fact.append(element("dt", "", label), description);
+    return fact;
+  }));
+  const coverage = $("#coverage");
+  coverage.replaceChildren(...rows.map((row) => {
+    const item = element("li", "coverage-row");
+    const heading = element("div", "coverage-heading");
+    const button = element("button", "text-button", String(row.year));
+    button.type = "button";
+    button.setAttribute("aria-label", `Folgen aus ${row.year} anzeigen`);
+    button.addEventListener("click", () => selectYear(row.year));
+    heading.append(button, element("span", "", row.percent === null ? "ohne Zitate" : `${row.percent} % bestätigt`));
+    const track = element("div", "coverage-track");
+    track.setAttribute("aria-hidden", "true");
+    const fill = element("span");
+    fill.style.width = `${row.percent || 0}%`;
+    track.append(fill);
+    item.append(heading, track, element("p", "", `${row.confirmed} bestätigt · ${row.missing} ohne erfasstes Zitat · ${row.withoutQuote} ohne Zitat begonnen`));
+    return item;
+  }));
+  if (!rows.length) coverage.append(element("li", "chart-empty", "Keine Folgen mit Erscheinungsdatum in dieser Auswahl."));
+  $("#listening-panel").hidden = !rows.some((row) => row.timed);
+  renderTable($("#listening-table"), ["Jahr", "Folgen mit Länge", "Hörzeit", "Ø Länge"],
+    rows.filter((row) => row.timed).map((row) => [
+      String(row.year), formatNumber(row.timed), `${formatNumber(Math.round(row.seconds / 3600))} Std.`,
+      formatDuration(row.seconds / row.timed, { exact: false }),
+    ]));
+  renderBars($("#listening"), {
+    rows: rows.filter((row) => row.timed).map((row) => ({
+      key: row.year, label: String(row.year), count: Math.round(row.seconds / 3600),
+    })),
+    selected: state.from === state.to ? state.from : null,
+    onSelect: selectYear,
+  });
+}
+
+function selectYear(year) {
+  state.from = year;
+  state.to = year;
+  update();
 }
 
 function renderFacts(list) {

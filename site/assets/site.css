@@ -1085,6 +1085,48 @@ td {
   text-align: right;
 }
 
+.coverage {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.coverage-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.coverage-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--surface-2);
+}
+
+.coverage-track span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.coverage-row p,
+.listening-details {
+  margin: 6px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.listening-details summary {
+  min-height: 44px;
+  align-content: center;
+  cursor: pointer;
+}
+
 .facts {
   display: grid;
   gap: 0;
@@ -1134,6 +1176,11 @@ td {
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+#collection-health small {
+  overflow: visible;
+  white-space: normal;
 }
 
 .chart-empty {

@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="description" content="Alle Folgen von Gemischtes Hack mit ihren Einstiegszitaten und den Songs dahinter. Ein Community-Projekt zum Durchsuchen und Mitmachen.">
     <meta name="theme-color" content="#f1e9da">
+    <link rel="canonical" href="https://crorry-dev.github.io/GemischtesHack/">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="de_DE">
+    <meta property="og:title" content="Gemischtes Hack – Zitate, Songs und Statistiken">
+    <meta property="og:description" content="Finde die Songs hinter Felix Lobrechts Einstiegszitaten. Offene Podcast-Datensammlung, Spotify-Playlist und Statistiken – mach mit!">
+    <meta property="og:url" content="https://crorry-dev.github.io/GemischtesHack/">
     <title>Songreferenzen — Gemischtes Hack</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%238b5a2b'/%3E%3Ctext x='16' y='21' font-family='system-ui,sans-serif' font-size='13' font-weight='800' text-anchor='middle' fill='%23fff'%3EGH%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="assets/site.css">
@@ -143,6 +149,21 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
           </summary>
           <div class="more-body">
+            <figure class="panel">
+              <div class="panel-head"><h3>Wie weit ist die Sammlung?</h3></div>
+              <ol class="coverage" id="coverage"></ol>
+              <figcaption>Anteil der Folgen mit mindestens einer bestätigten Zitat-Zuordnung. Folgen ohne Zitat zählen nicht zum Nenner. Jahreszahl antippen filtert; alle aktiven Filter gelten auch hier.</figcaption>
+            </figure>
+            <figure class="panel" id="listening-panel">
+              <div class="panel-head"><h3>Hörzeit pro Jahr</h3></div>
+              <div id="listening"></div>
+              <details class="listening-details">
+                <summary>Genaue Jahreswerte als Tabelle</summary>
+                <div class="panel-table" id="listening-table"></div>
+              </details>
+              <figcaption>Stunden aus erfassten Folgenlängen, auf ganze Stunden gerundet. Kein persönlicher Hörverlauf. Antippen filtert das Jahr.</figcaption>
+            </figure>
+            <dl class="facts" id="collection-health" aria-label="Sammelstand und Datenqualität"></dl>
             <figure class="panel" id="duration-panel">
               <div class="panel-head">
                 <h3>Länge der Folgen</h3>
@@ -188,9 +209,11 @@
       <section class="callout reveal" aria-labelledby="callout-title">
         <h2 id="callout-title">Du kennst ein Zitat?</h2>
         <p>Öffne die Folge und schlag es direkt vor – wenn es ein Song ist, am besten mit Spotify-Link. Bestätigte Songs landen automatisch in unserer Playlist. Zitate aus Filmen oder von Personen sammeln wir genauso.</p>
+        <p>Vorschläge werden geprüft und wöchentlich gesammelt veröffentlicht, bei Bedarf auch früher manuell. „In Prüfung“ zeigt den Stand der letzten Veröffentlichung, nicht den Live-Stand der Issues.</p>
         <div class="callout-actions">
           <a class="button" href="https://github.com/crorry-dev/GemischtesHack/issues/new?template=zitat.yml">Zitat vorschlagen</a>
           <a class="button button-quiet" id="episode-form" href="https://github.com/crorry-dev/GemischtesHack/issues/new?template=folge.yml">Neue Folge eintragen</a>
+          <a class="button button-quiet" href="https://github.com/crorry-dev/GemischtesHack/contribute">Am Projekt mitarbeiten</a>
         </div>
       </section>
     </main>

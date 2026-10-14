@@ -1,0 +1,15 @@
+name: Fehler oder Verbesserung
+description: Problem melden oder eine Idee für Website, Statistik oder Zusammenarbeit vorschlagen
+body:
+  - type: textarea
+    id: beschreibung
+    attributes:
+      label: Worum geht es?
+      description: Was passiert, was erwartest du, oder welche Verbesserung schlägst du vor?
+    validations:
+      required: true
+  - type: textarea
+    id: nachstellen
+    attributes:
+      label: Schritte und Beispiele
+      description: Optional – Link, Browser, betroffene Folge oder Screenshot. Keine Zugangsdaten angeben.
