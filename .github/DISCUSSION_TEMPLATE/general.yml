@@ -1,30 +1,63 @@
-name: Zitat vorschlagen
-description: Einstiegszitat einer Folge eintragen oder korrigieren – mit Song oder anderer Herkunft
-title: "Zitat zu Folge #"
+title: "Folge #"
 body:
   - type: markdown
     attributes:
       value: |
-        Danke fürs Mitmachen! Trag ein, was du selbst gehört oder nachgeprüft hast, und lass Unbekanntes einfach leer.
-        Stammt das Zitat aus einem Song, hilft der Spotify-Link am meisten: Bestätigte Songs kommen automatisch in unsere Playlist.
-        Zitate aus Filmen, Serien oder von Personen sammeln wir genauso, nur eben ohne Songlink.
-        Wir prüfen jeden Vorschlag und veröffentlichen freigegebene Vorschläge gesammelt einmal pro Woche, bei Bedarf auch früher manuell.
+        Eine neue Folge ist draußen oder bei einer Folge stimmt etwas nicht? Trag die Angaben hier ein.
+        Kennst du schon das Einstiegszitat, kannst du es weiter unten gleich mit eintragen.
+        Community-Kurator:innen geben geprüfte Angaben mit /approve frei. Die Veröffentlichung erfolgt gesammelt einmal pro Woche, bei Bedarf früher manuell.
 
   - type: input
-    id: folge
+    id: nummer
     attributes:
-      label: Folge
-      description: Nummer und Titel, z. B. „#270 DEUTSCHE KENNEDY“
+      label: Folgennummer
+      placeholder: "365"
     validations:
       required: true
+
+  - type: input
+    id: titel
+    attributes:
+      label: Titel
+      description: So wie er bei der Folge steht, ohne Nummer. Wir übernehmen ihn in Großbuchstaben.
+      placeholder: z. B. „LIPPENDINO“
+    validations:
+      required: true
+
+  - type: input
+    id: datum
+    attributes:
+      label: Erschienen am
+      description: Format TT.MM.JJJJ
+      placeholder: "29.09.2026"
+    validations:
+      required: true
+
+  - type: input
+    id: dauer
+    attributes:
+      label: Länge
+      description: Format HH:MM:SS, z. B. vom Ende der Zeitleiste im Player
+      placeholder: "01:26:30"
+
+  - type: input
+    id: link
+    attributes:
+      label: Link zur Folge
+      description: In Spotify bei der Folge auf „Teilen“ und „Link kopieren“ tippen.
+      placeholder: https://open.spotify.com/episode/…
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Einstiegszitat (optional)
+        Lass diesen Teil leer, wenn du das Zitat nicht kennst. Es kann auch später über „Zitat vorschlagen“ dazukommen.
 
   - type: textarea
     id: zitat
     attributes:
       label: Zitat
       description: Wortlaut oder kurze Beschreibung, so wie es in der Folge vorkommt. Beginnt die Folge ohne Zitat, hier ihre ersten Worte.
-    validations:
-      required: true
 
   - type: dropdown
     id: herkunft
@@ -36,8 +69,6 @@ body:
         - Person
         - Sonstiges
         - Kein Zitat, nur Folgenanfang
-    validations:
-      required: true
 
   - type: input
     id: songtitel
@@ -71,4 +102,4 @@ body:
     id: anmerkung
     attributes:
       label: Anmerkung
-      description: Optional, z. B. was an einem bestehenden Eintrag nicht stimmt
+      description: Optional, z. B. was an einer bestehenden Folge nicht stimmt

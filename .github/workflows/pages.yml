@@ -9,13 +9,14 @@ on:
       - data/**
       - scripts/**
       - .github/workflows/pages.yml
-  # Issue-Änderungen werden nur beim Wochenlauf oder manuellen Start veröffentlicht.
+  # Discussion-Änderungen werden nur beim Wochenlauf oder manuellen Start veröffentlicht.
   workflow_dispatch:
   workflow_call:
 
 permissions:
   contents: read
   issues: read
+  discussions: read
 
 concurrency:
   group: pages
@@ -30,7 +31,7 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
       # Der Playlist-Link steht in scripts/playlist.py, die Website zeigt dann „Playlist auf Spotify folgen“.
-      # Offene Issues aus den Formularen markieren ihre Folgen als „In Prüfung“.
+      # Offene Discussions aus den Formularen markieren ihre Folgen als „In Prüfung“.
       - name: Include shared data
         env:
           GH_TOKEN: ${{ github.token }}
@@ -38,7 +39,7 @@ jobs:
           mkdir -p site/data
           cp -R data/. site/data/
           jq -n --arg url "$(python3 scripts/playlist.py link)" '{url: $url}' > site/data/playlist.json
-          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" | jq 'add' > "$RUNNER_TEMP/offen.json"
+          python3 scripts/discussions.py > "$RUNNER_TEMP/offen.json"
           python3 scripts/vorschlaege.py "$RUNNER_TEMP/offen.json" > site/data/vorschlaege.json
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3

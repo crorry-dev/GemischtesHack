@@ -1,9 +1,9 @@
-"""Offene Vorschläge für die Website: welche Folgen ein offenes Issue haben.
+"""Offene Vorschläge für die Website: welche Folgen eine offene Discussion haben.
 
 Läuft beim Veröffentlichen (.github/workflows/pages.yml):
   python3 scripts/vorschlaege.py offen.json > site/data/vorschlaege.json
 
-offen.json ist die Liste offener Issues aus der GitHub-API. Die Website markiert damit
+offen.json ist die normalisierte Liste aus discussions.py. Die Website markiert damit
 Folgen als „In Prüfung“. Was in den Vorschlägen steht, landet bewusst nicht auf der
 Website, denn es ist ja noch ungeprüft.
 """

@@ -25,6 +25,7 @@ jobs:
     permissions:
       contents: write
       issues: write
+      discussions: write
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -34,7 +35,7 @@ jobs:
           python3 -m unittest discover -s tests -q
           node --test tests/statistics.test.mjs
       - name: List all open suggestions
-        run: gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" | jq 'add' > "$RUNNER_TEMP/offen.json"
+        run: python3 scripts/discussions.py --comments > "$RUNNER_TEMP/offen.json"
       - name: Apply approved suggestions in one commit
         env:
           APPROVE_ALL: ${{ inputs.alle || false }}
@@ -45,7 +46,7 @@ jobs:
         run: |
           args=()
           if [ "$APPROVE_ALL" = "true" ]; then args+=(--alle); fi
-          python3 scripts/sammellauf.py --commit --offen "$RUNNER_TEMP/offen.json" "${args[@]}"
+          python3 scripts/sammellauf.py --discussions --commit --offen "$RUNNER_TEMP/offen.json" "${args[@]}"
 
   playlist:
     needs: apply
@@ -60,5 +61,6 @@ jobs:
     permissions:
       contents: read
       issues: read
+      discussions: read
       pages: write
       id-token: write

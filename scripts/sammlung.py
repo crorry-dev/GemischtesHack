@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CSV_PATH = ROOT / "data" / "zitate.csv"
-FORMS_PATH = ROOT / ".github" / "ISSUE_TEMPLATE"
+FORMS_PATH = ROOT / ".github" / "DISCUSSION_TEMPLATE"
 
 
 def read_rows(path=CSV_PATH):

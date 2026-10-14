@@ -1,7 +1,7 @@
-"""Übernimmt einen Vorschlag aus einem Issue-Formular in data/zitate.csv.
+"""Übernimmt einen Formularvorschlag in data/zitate.csv.
 
 Der Wochenlauf in .github/workflows/uebernehmen.yml sammelt Freigaben per
-„/approve“ von Personen mit Schreibrechten. Ohne Zusatz gilt der Vorschlag als bestätigt
+„/approve“ von Kurator:innen oder Personen mit Schreibrechten. Ohne Zusatz gilt der Vorschlag als bestätigt
 (bei einem Song ohne Titel und Link als offen). Dahinter optional:
 
   all      alle offenen Vorschläge auf einmal übernehmen, nicht nur dieses Issue
@@ -9,7 +9,7 @@ Der Wochenlauf in .github/workflows/uebernehmen.yml sammelt Freigaben per
   open     Prüfstatus „offen“
   extra    Zitat als weitere Verwendung anlegen, statt die erste zu ersetzen
 
-Die Überschriften der Formulare liest das Skript direkt aus .github/ISSUE_TEMPLATE/.
+Die Überschriften der Formulare liest das Skript direkt aus .github/DISCUSSION_TEMPLATE/.
 Ein Zitat-Vorschlag beschreibt die Verwendung vollständig: Leere Felder bleiben leer.
 
 Lokal ausprobieren:  python3 scripts/uebernehmen.py event.json [--offen issues.json]
@@ -44,7 +44,7 @@ QUOTE_LABELS = {
     "pruefstatus": "Prüfstatus",
 }
 EPISODE_COLUMNS = {"folge_id", "folge_titel", "veroeffentlicht_am", "dauer", "folge_url"}
-RETRY_HINT = "Nach dem Anpassen des Issues einfach noch einmal `/approve` kommentieren."
+RETRY_HINT = "Nach dem Anpassen des Vorschlags bitte erneut prüfen und `/approve` kommentieren (bei einem Kommentarvorschlag mit dessen Link)."
 
 
 class Problem(Exception):
@@ -63,7 +63,7 @@ class Outcome:
 
 
 def form_labels(path):
-    """Überschrift → id eines Issue-Formulars."""
+    """Überschrift → id eines Formulars."""
     labels, current = {}, None
     for line in path.read_text(encoding="utf-8").splitlines():
         found = re.match(r"\s*(?:-\s*)?id:\s*(\S+)\s*$", line)
@@ -93,14 +93,14 @@ def parse_body(body, labels):
 
 
 def read_form(body):
-    """Erkennt das Formular am Aufbau des Issues: (Name, Felder)."""
+    """Erkennt das Formular am Aufbau des Vorschlags: (Name, Felder)."""
     best = ("", {})
     for path in sorted(sammlung.FORMS_PATH.glob("*.yml")):
-        if path.stem not in {"zitat", "folge"}:
+        if path.stem not in {"q-a", "general"}:
             continue
         fields = parse_body(body, form_labels(path))
         if len(fields) > len(best[1]):
-            best = (path.stem, fields)
+            best = ("folge" if path.stem == "general" else "zitat", fields)
     if len(best[1]) < 2:
         raise Problem("Das Issue passt zu keinem unserer Formulare („Zitat vorschlagen“ oder „Folge eintragen“).")
     return best

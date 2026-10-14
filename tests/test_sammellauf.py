@@ -110,6 +110,7 @@ class ApplyTests(unittest.TestCase):
             args.return_value.offen = "issues.json"
             args.return_value.alle = True
             args.return_value.commit = True
+            args.return_value.discussions = False
             sammellauf.main()
         push.assert_called_once()
         self.assertIn("2 Vorschläge", push.call_args.args[0])

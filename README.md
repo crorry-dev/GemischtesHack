@@ -16,9 +16,9 @@ no coding required for quote suggestions.
 ## Mitmachen
 
 - **Zitat vorschlagen:** auf der Website eine Folge öffnen oder direkt das
-  [Zitat-Formular](https://github.com/crorry-dev/GemischtesHack/issues/new?template=zitat.yml) nutzen.
+  [Discussion-Formular in Q&A](https://github.com/crorry-dev/GemischtesHack/discussions/new?category=q-a) nutzen.
 - **Neue Folge eintragen:** Titel, Datum, Länge und Link über das
-  [Folgen-Formular](https://github.com/crorry-dev/GemischtesHack/issues/new?template=folge.yml),
+  [Discussion-Formular in General](https://github.com/crorry-dev/GemischtesHack/discussions/new?category=general),
   auf Wunsch gleich mit dem Zitat.
 - **Daten bearbeiten:** [`data/zitate.csv`](data/zitate.csv), eine Zeile pro
   Zitat (UTF-8, Komma als Trennzeichen).
@@ -32,15 +32,45 @@ no coding required for quote suggestions.
 
 ### Freigaben und Wochenlauf
 
-Vorschläge prüft ein Maintainer und gibt sie mit `/approve` frei
+**Discussions sind für Daten und Austausch, Issues für Bugs und Entwicklungsaufgaben.**
+In **Q&A** ordnen wir Zitate gemeinsam zu, in **General** ergänzen wir Folgen.
+Ideen kommen nach [Ideas](https://github.com/crorry-dev/GemischtesHack/discussions/categories/ideas).
+Die bisherigen Daten-Issues sind abgearbeitet; ihre Links und Antworten bleiben erhalten.
+Es gibt keinen zweiten automatischen Dateneingang über neue Issues.
+
+Vorschläge prüft eine Community-Kurator:in oder jemand mit Schreibrechten und gibt sie
+mit einem **Hauptkommentar** `/approve` frei
 (oder `/approve unsure`, `/approve open`, optional `extra` für ein weiteres Zitat).
-`/approve all` gibt alle zu diesem Zeitpunkt offenen Formularvorschläge frei,
-nicht später eingereichte Issues. Kommentare selbst starten **keine Action**.
-Die aktuellen Schreibrechte der freigebenden Person werden beim Verarbeiten geprüft.
+Das gilt für den Formulartext im Startbeitrag. Ein alternativer Vorschlag gehört
+als vollständiger Formulartext (mit denselben `###`-Überschriften) in einen
+Hauptkommentar. Dessen Link wird ausdrücklich freigegeben:
+
+```text
+/approve https://github.com/crorry-dev/GemischtesHack/discussions/NUMMER#discussioncomment-ID
+```
+
+Zusätze wie `unsure` stehen hinter dem Link. Links auf andere Discussions oder auf
+verschachtelte Antworten werden zurückgewiesen. Nachträglich geänderte Vorschläge
+brauchen eine neue Freigabe; der Wochenlauf meldet das in der Discussion.
+Eine vom Fragesteller markierte Antwort und 👍 sind **keine** automatische Bestätigung.
+Nach erfolgreicher Übernahme markiert der Bot den freigegebenen Kommentar in Q&A
+als Antwort und schließt die Discussion als erledigt; Startbeiträge werden ebenfalls
+übernommen und geschlossen. Für spätere Korrekturen eine neue Discussion eröffnen.
+
+`/approve all` gibt die Startbeiträge aller zu diesem Zeitpunkt offenen
+Daten-Discussions frei, nicht später eingereichte. Es wählt **keine** alternativen
+Kommentarvorschläge aus. Kommentare selbst starten **keine Action**.
+**Freigabe bedeutet Warteschlange, nicht sofortige Veröffentlichung.**
 
 **Donnerstags um 06:17 UTC** (07:17 MEZ / 08:17 MESZ) sammelt
 **Weekly community update** die Freigaben, übernimmt sie mit **einem Daten-Commit**,
 gleicht einmal die Playlist ab und veröffentlicht einmal die Website.
+Zum sofortigen Verarbeiten nach `/approve all` den Sammellauf manuell starten:
+
+```sh
+gh workflow run uebernehmen.yml --ref main
+```
+
 GitHub kann geplante Läufe verzögert starten; in inaktiven öffentlichen Repositories
 können Zeitpläne nach 60 Tagen deaktiviert werden.
 
@@ -52,7 +82,7 @@ mit einer Rückmeldung offen; unveränderte Fehler erzeugen nicht jede Woche neu
 Kommentare. Nach einer Korrektur oder einem neuen `/approve` werden sie erneut geprüft.
 
 „In Prüfung“ auf der Website entspricht dem Stand der letzten Veröffentlichung,
-nicht dem Live-Stand der Issues. Bestätigte Songs mit Spotify-Link kommen danach
+nicht dem Live-Stand der Discussions. Bestätigte Songs mit Spotify-Link kommen danach
 automatisch in die Playlist, die neueste Folge steht dort oben.
 Bei einem Playlist-Fehler wird die Website trotzdem veröffentlicht; der Lauf
 meldet den Fehler sichtbar. API-Fehler brechen ab statt leere Daten vorzutäuschen.
@@ -61,6 +91,16 @@ Direkte Änderungen an Website und Daten werden weiterhin nach einem Push auf
 `main` veröffentlicht. Reine README-/Community-Änderungen lösen keine Builds aus;
 die Playlist läuft bei Pushes nur für Änderungen an ihren Eingabedaten oder Skripten.
 Es gibt weder tägliche Playlist-Läufe noch Workflows pro Issue/Kommentar.
+
+### Verantwortung teilen
+
+Die vertrauenswürdigen GitHub-Namen stehen in
+[`.github/kuratoren.json`](.github/kuratoren.json). Neue Kurator:innen werden nach
+Absprache per Pull Request aufgenommen und brauchen **keinen Schreibzugriff auf
+den Code**. Bis weitere Personen mitmachen, ist `crorry-dev` eingetragen.
+Die Liste gewährt nur die oben beschriebene Datenfreigabe; Repository-Schreibrechte
+werden bei anderen Personen weiterhin über GitHub geprüft. Review, Beleg und
+Freigabe bleiben menschliche Aufgaben, nicht eine Mehrheitsabstimmung.
 
 ## Statistiken und Datenstand
 
@@ -72,8 +112,9 @@ nicht pro Zitat. Die Hörzeit ist die Summe erfasster Laufzeiten, kein persönli
 Spotify-Hörverlauf. Folgen ohne Zitat sind aus der Zuordnungsquote ausgeschlossen;
 „vermutet“ zählt nicht als bestätigt.
 
-Bestandsaufnahme vom **14.10.2026**: 364 Folgen mit vollständigen Titel-, Datums-,
-Laufzeit- und Folgenlink-Angaben; 29 erfasste Einstiege, davon 13 ohne Zitat.
+Bestandsaufnahme vom **14.10.2026** nach Übernahme der bisherigen Issues: 364 Folgen
+mit vollständigen Titel-, Datums-, Laufzeit- und Folgenlink-Angaben;
+35 erfasste Einstiege, davon 16 ohne Zitat.
 Vier Einträge sind Songs mit Spotify-Link. Der größte Beitrag ist deshalb derzeit
 das Zuordnen weiterer Einstiege. Musikgenres, Erscheinungsjahre der Songs und
 Sprachen sind nicht erfasst und werden nicht aus Titeln geraten.

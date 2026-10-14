@@ -8,7 +8,7 @@ sie als solche erkennbar sind.
 
 1. Auf der [Website](https://crorry-dev.github.io/GemischtesHack/) eine offene Folge
    suchen und anhören.
-2. Vorhandene [Vorschläge](https://github.com/crorry-dev/GemischtesHack/issues)
+2. Vorhandene [Discussions](https://github.com/crorry-dev/GemischtesHack/discussions)
    prüfen, um doppelte Arbeit zu vermeiden.
 3. „Zitat vorschlagen“ öffnen, Folge und kurzen Wortlaut oder eine Beschreibung
    angeben. Bei Songs Titel, Interpret/in und möglichst Spotify-Link ergänzen.
@@ -19,11 +19,33 @@ Beginnt die Folge ohne Zitat, „Kein Zitat, nur Folgenanfang“ wählen. Neue F
 haben ein eigenes Formular. Freigaben werden wöchentlich gesammelt verarbeitet;
 es braucht keine wiederholten Kommentare. Details im [README](README.md#freigaben-und-wochenlauf).
 
+### Gemeinsam prüfen und kuratieren
+
+- **Q&A:** Einstiegszitate und Quellen gemeinsam zuordnen.
+- **General:** neue Folgen oder Korrekturen an Folgendaten eintragen.
+- **Ideas:** Wünsche und größere Ideen besprechen.
+- **Issues:** konkrete Bugs und umsetzbare Entwicklungsaufgaben.
+
+Zu einer bestehenden Discussion ergänzen alle ihre Belege als Kommentare.
+Ein alternativer Datenvorschlag muss als Hauptkommentar den **vollständigen
+Formulartext mit denselben `###`-Überschriften** enthalten. Einzelne Gesprächsantworten
+werden nicht als Daten importiert. Eine Kurator:in kann diesen Kommentar mit
+`/approve KOMMENTAR-LINK` freigeben; `/approve` allein meint den Startbeitrag.
+Beide Befehle gehören in einen Hauptkommentar, nicht in eine verschachtelte Antwort.
+Eine markierte Antwort oder viele Zustimmungen ersetzen keine Freigabe.
+
+Du möchtest regelmäßig Quellen prüfen? Melde dich in
+[Ideas](https://github.com/crorry-dev/GemischtesHack/discussions/categories/ideas).
+Nach Absprache ergänzen Maintainer deinen GitHub-Namen in
+[kuratoren.json](.github/kuratoren.json). Dafür ist kein Schreibzugriff auf Code nötig.
+Prüfe den Beleg und kennzeichne Unsicherheiten mit `/approve unsure`.
+Beim nächsten Wochenlauf übernimmt der Bot die freigegebenen Daten.
+
 ## Code und Daten
 
 Kleine Aufgaben findest du unter
 [good first issue](https://github.com/crorry-dev/GemischtesHack/labels/good%20first%20issue).
-Bei größeren Ideen erst ein Issue eröffnen, damit wir Umfang und Datenbedarf
+Bei größeren Ideen erst eine Discussion in Ideas eröffnen, damit wir Umfang und Datenbedarf
 abstimmen können.
 
 1. Repository über **Fork** in dein GitHub-Konto kopieren und lokal klonen.
@@ -51,6 +73,10 @@ Produktivdaten oder Issues. Es sind keine Spotify-Secrets nötig.
   Eine Folge kann mehrere Zitate haben; `verwendung_id` muss eindeutig bleiben.
 - [scripts/](scripts/): Python-Standardbibliothek, gemeinsame Helfer in
   [sammlung.py](scripts/sammlung.py).
+- [Discussion-Formulare](.github/DISCUSSION_TEMPLATE/): Dateinamen müssen den
+  Kategorie-Slugs entsprechen. Die Feldüberschriften werden auch vom Import gelesen.
+  [discussions.py](scripts/discussions.py) liest alle offenen Daten-Discussions und
+  ihre Hauptkommentare über die GitHub-GraphQL-API, einschließlich Folgeseiten.
 - [site/assets/](site/assets/): native JavaScript-Module und CSS, kein Build-System.
   Reine Statistikberechnung in [statistics.js](site/assets/statistics.js).
 - [tests/](tests/): Sammelfreigaben, Wiederholbarkeit, Datenprüfung und

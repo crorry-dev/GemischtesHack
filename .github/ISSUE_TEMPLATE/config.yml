@@ -1,5 +1,14 @@
 blank_issues_enabled: true
 contact_links:
+  - name: Zitat gemeinsam zuordnen
+    url: https://github.com/crorry-dev/GemischtesHack/discussions/new?category=q-a
+    about: Einstiegszitate, Quellen und Bestätigungen gehören in die Community-Discussions.
+  - name: Neue Folge eintragen
+    url: https://github.com/crorry-dev/GemischtesHack/discussions/new?category=general
+    about: Folgendaten ergänzen oder korrigieren.
+  - name: Ideen und Austausch
+    url: https://github.com/crorry-dev/GemischtesHack/discussions/categories/ideas
+    about: Ideen erst gemeinsam diskutieren; konkrete Entwicklungsaufgaben bleiben Issues.
   - name: Sammlung durchsuchen
     url: https://crorry-dev.github.io/GemischtesHack/
     about: Erst nachsehen, ob das Zitat oder die Folge schon erfasst ist.

@@ -1290,11 +1290,11 @@ async function shareEpisode() {
   }
 }
 
-// Öffnet das Formular .github/ISSUE_TEMPLATE/zitat.yml, vorausgefüllt mit allem, was schon bekannt ist
+// Die Feld-IDs entsprechen dem Discussion-Formular für die Kategorie Q&A.
 function issueLink(episode) {
   const usage = episode.usages.find((item) => item.quote) || episode.usages[0];
   const params = new URLSearchParams({
-    template: "zitat.yml",
+    category: "q-a",
     title: `Zitat zu Folge #${episode.id}: ${episode.title}`,
     folge: [`#${episode.id} ${episode.title}`, episode.url].filter(Boolean).join(" – "),
   });
@@ -1303,13 +1303,13 @@ function issueLink(episode) {
   if (usage.artist) params.set("interpret", usage.artist);
   if (usage.trackUrl) params.set("spotify", usage.trackUrl);
   if (usage.origin) params.set("herkunft_detail", usage.origin);
-  return `${REPO}/issues/new?${params}`;
+  return `${REPO}/discussions/new?${params}`;
 }
 
-// Öffnet .github/ISSUE_TEMPLATE/folge.yml: für eine neue Folge nur mit Nummer, sonst mit allen bekannten Angaben
+// Neue und korrigierte Folgen gehören in die Kategorie General.
 function episodeIssueLink(episode) {
   const params = new URLSearchParams({
-    template: "folge.yml",
+    category: "general",
     title: [`Folge #${episode.id}`, episode.title].filter(Boolean).join(": "),
     nummer: episode.id,
   });
@@ -1317,7 +1317,7 @@ function episodeIssueLink(episode) {
   if (episode.date) params.set("datum", formatDate(episode.date));
   if (episode.duration) params.set("dauer", formatClock(episode.duration));
   if (episode.url) params.set("link", episode.url);
-  return `${REPO}/issues/new?${params}`;
+  return `${REPO}/discussions/new?${params}`;
 }
 
 // --- Tastatur -------------------------------------------------------------------------------

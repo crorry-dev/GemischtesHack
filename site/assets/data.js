@@ -43,7 +43,7 @@ export async function loadPlaylist(bases) {
   }
 }
 
-// Offene Vorschläge (Issues) als Liste {folge, issue, url, art}; legt der Pages-Workflow an
+// Offene Discussions als Liste {folge, issue: Diskussionsnummer, url, art}; legt der Pages-Workflow an
 export async function loadPending() {
   const text = await fetchText("vorschlaege.json");
   try {
