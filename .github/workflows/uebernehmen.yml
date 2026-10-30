@@ -28,6 +28,10 @@ jobs:
       discussions: write
     env:
       GH_TOKEN: ${{ github.token }}
+      GIT_AUTHOR_NAME: github-actions[bot]
+      GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+      GIT_COMMITTER_NAME: github-actions[bot]
+      GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
     steps:
       - uses: actions/checkout@v4
       - name: Check batch processing and statistics
@@ -39,14 +43,16 @@ jobs:
       - name: Apply approved suggestions in one commit
         env:
           APPROVE_ALL: ${{ inputs.alle || false }}
-          GIT_AUTHOR_NAME: github-actions[bot]
-          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
-          GIT_COMMITTER_NAME: github-actions[bot]
-          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
         run: |
           args=()
           if [ "$APPROVE_ALL" = "true" ]; then args+=(--alle); fi
           python3 scripts/sammellauf.py --discussions --commit --offen "$RUNNER_TEMP/offen.json" "${args[@]}"
+      # Nicht mehr abspielbare Songs markieren, damit jemand einen neuen Link sucht
+      - name: Check Spotify links
+        env:
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+        run: python3 scripts/spotifylinks.py --commit
 
   playlist:
     needs: apply

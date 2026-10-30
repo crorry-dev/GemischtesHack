@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import subprocess
+import time
 from datetime import datetime
 
 import sammlung
@@ -128,20 +129,26 @@ def proposal(discussion, approval):
                 answer_id=source.get("node_id"), source_url=source["html_url"])
 
 
+def mutate(query, **variables):
+    """GitHub drosselt viele Schreibzugriffe kurz hintereinander; eine Sekunde Abstand hält das Limit ein."""
+    time.sleep(1)
+    return graphql(query, **variables)
+
+
 def reply(discussion, body, close, answer_id=None):
-    graphql("""
+    mutate("""
       mutation($id:ID!, $body:String!) {
         addDiscussionComment(input:{discussionId:$id, body:$body}) { comment { id } }
       }
     """, id=discussion["discussion_id"], body=body)
     if close:
         if answer_id and discussion["answerable"]:
-            graphql("""
+            mutate("""
               mutation($id:ID!) {
                 markDiscussionCommentAsAnswer(input:{id:$id}) { discussion { id } }
               }
             """, id=answer_id)
-        graphql("""
+        mutate("""
           mutation($id:ID!) {
             closeDiscussion(input:{discussionId:$id, reason:RESOLVED}) { discussion { id } }
           }

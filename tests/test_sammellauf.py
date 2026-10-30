@@ -9,7 +9,9 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import sammlung
 import sammellauf
+import spotifylinks
 import uebernehmen
+import vorschlaege
 
 
 def issue(number=1, created="2026-10-01T00:00:00Z"):
@@ -115,6 +117,71 @@ class ApplyTests(unittest.TestCase):
         push.assert_called_once()
         self.assertIn("2 Vorschläge", push.call_args.args[0])
         self.assertEqual(run.call_count, 4)
+
+    def rows(self):
+        columns, rows = sammlung.read_rows()
+        return columns, [dict(rows[0], folge_id="1", verwendung_id="001-1"), dict(rows[1], folge_id="2", verwendung_id="002-1")]
+
+    def test_bulk_form_is_recognized_and_lists_every_episode(self):
+        body = "### Zitate\n\nFolge: #1\nZitat: Eins\n\nFolge: 2\nZitat: Zwei"
+        self.assertEqual(uebernehmen.read_form(body)[0], "mehrere")
+        pending = vorschlaege.pending([{"number": 5, "body": body, "html_url": "u"}])
+        self.assertEqual([entry["folge"] for entry in pending], [1, 2])
+
+    def test_bulk_blocks_tables_and_empty_template_blocks(self):
+        text = "Folge: #1\nZitat: Erste Zeile\nzweite Zeile\nSong: Lied\n\nFolge: \nZitat: \nHerkunft: Song\n"
+        self.assertEqual(uebernehmen.bulk_entries(text), [
+            {"folge": "#1", "zitat": "Erste Zeile zweite Zeile", "songtitel": "Lied"}])
+        table = "Folge\tZitat\tInterpret\n1\tEins\tSido\n2\tZwei\t"
+        self.assertEqual(uebernehmen.bulk_entries(table)[1], {"folge": "2", "zitat": "Zwei", "interpret": ""})
+        with self.assertRaises(uebernehmen.Problem):
+            uebernehmen.bulk_entries("Zitat\tSong\nEins\tLied")
+
+    def test_bulk_applies_valid_entries_and_reports_the_rest(self):
+        columns, rows = self.rows()
+        text = ("Folge: #1\nZitat: Neu\nSong: Lied\nInterpret: Sido\nAnmerkung: nicht bei Spotify\n"
+                "Folge: #1\nZitat: Zweites\nHerkunft: Person\nWoher: Felix\n"
+                "Folge: #999\nZitat: Gibt es nicht")
+        outcome = uebernehmen.apply_many({"eintraege": text}, columns, rows, "", False)
+        self.assertTrue(outcome.changed)
+        self.assertFalse(outcome.close)
+        self.assertIn("Eintrag 3 (#999)", outcome.reply)
+        first = [row for row in rows if row["folge_id"] == "1"]
+        self.assertEqual([row["zitat"] for row in first], ["Neu", "Zweites"])
+        self.assertEqual(first[0]["anmerkung"], "nicht bei Spotify")
+        self.assertEqual(first[1]["verwendung_id"], "001-2")
+        again = uebernehmen.apply_many({"eintraege": text}, columns, rows, "", False)
+        self.assertFalse(again.changed)
+        self.assertEqual(len([row for row in rows if row["folge_id"] == "1"]), 2)
+
+    def test_further_quote_from_form_field(self):
+        columns, rows = self.rows()
+        fields = {"folge": "#2", "zitat": "Noch eins", "weiteres": "Weiteres Zitat, das bisherige bleibt"}
+        uebernehmen.apply_quote(fields, columns, rows, "", False)
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(rows[2]["verwendung_id"], "002-2")
+
+    def test_opening_speaker_from_origin_detail(self):
+        columns, rows = self.rows()
+        fields = {"folge": "#1", "zitat": "Hallo", "herkunft": "Kein Zitat, nur Folgenanfang", "herkunft_detail": "Tommi"}
+        uebernehmen.apply_quote(fields, columns, rows, "", False)
+        self.assertEqual((rows[0]["herkunft"], rows[0]["interpret"]), ("Kein Zitat", "Tommi"))
+
+    def test_new_spotify_link_clears_unavailable_mark(self):
+        columns, rows = self.rows()
+        rows[0].update(spotify_link="https://open.spotify.com/track/" + "a" * 22, spotify_status="nicht verfügbar")
+        fields = {"folge": "#1", "zitat": "Test", "spotify": "https://open.spotify.com/track/" + "b" * 22}
+        uebernehmen.apply_quote(fields, columns, rows, "", False)
+        self.assertEqual(rows[0]["spotify_status"], "")
+
+    def test_link_check_marks_and_clears_once_per_track(self):
+        dead, alive = "https://open.spotify.com/track/" + "a" * 22, "https://open.spotify.com/track/" + "b" * 22
+        rows = [{"spotify_link": dead}, {"spotify_link": dead}, {"spotify_link": alive, "spotify_status": "nicht verfügbar"}, {}]
+        calls = []
+        changed = spotifylinks.check(rows, lambda track: calls.append(track) or track == "b" * 22)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual([row.get("spotify_status") for row in rows], ["nicht verfügbar", "nicht verfügbar", "", None])
+        self.assertEqual(len(changed), 3)
 
     def test_real_dataset_has_valid_episode_metadata(self):
         _, rows = sammlung.read_rows()

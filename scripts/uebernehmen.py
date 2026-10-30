@@ -11,6 +11,8 @@ Der Wochenlauf in .github/workflows/uebernehmen.yml sammelt Freigaben per
 
 Die Überschriften der Formulare liest das Skript direkt aus .github/DISCUSSION_TEMPLATE/.
 Ein Zitat-Vorschlag beschreibt die Verwendung vollständig: Leere Felder bleiben leer.
+„Mehrere Zitate“ (ideas.yml) bündelt viele Zitate in einem Vorschlag; fehlerhafte Einträge
+werden einzeln gemeldet, die übrigen übernommen.
 
 Lokal ausprobieren:  python3 scripts/uebernehmen.py event.json [--offen issues.json]
 """
@@ -33,6 +35,8 @@ ORIGINS = {"song": "Song", "film": "Film", "serie": "Serie", "person": "Person",
 # Zusätze hinter /approve; die deutschen Statuswörter gehen auch
 STATES = {"unsure": "vermutet", "vermutet": "vermutet", "open": "offen", "offen": "offen"}
 EXTRA = ("extra", "zusätzlich", "zusaetzlich")
+# Formularfeld „Erstes oder weiteres Zitat?“ bzw. „Weiteres: ja“ in „Mehrere Zitate“
+FURTHER = ("weiteres", "ja", "zweites", "2")
 ALL = ("all", "alle")
 EPISODE_LABELS = {"folge_titel": "Titel", "veroeffentlicht_am": "Datum", "dauer": "Länge", "folge_url": "Link"}
 QUOTE_LABELS = {
@@ -42,6 +46,20 @@ QUOTE_LABELS = {
     "spotify_link": "Spotify-Link",
     "herkunft": "Herkunft",
     "pruefstatus": "Prüfstatus",
+    "anmerkung": "Anmerkung",
+}
+FORMS = {"general": "folge", "q-a": "zitat", "ideas": "mehrere"}
+# Spaltennamen in „Mehrere Zitate“ → Feld-id des Zitat-Formulars
+BULK_KEYS = {
+    "folge": "folge", "nr": "folge", "nummer": "folge",
+    "zitat": "zitat",
+    "herkunft": "herkunft",
+    "song": "songtitel", "songtitel": "songtitel", "titel": "songtitel",
+    "interpret": "interpret", "interpret/in": "interpret", "interpreten": "interpret", "künstler": "interpret",
+    "spotify": "spotify", "spotify-link": "spotify", "link": "spotify",
+    "woher": "herkunft_detail", "quelle": "herkunft_detail",
+    "anmerkung": "anmerkung", "notiz": "anmerkung",
+    "weiteres": "weiteres", "weiteres zitat": "weiteres", "zweites zitat": "weiteres",
 }
 EPISODE_COLUMNS = {"folge_id", "folge_titel", "veroeffentlicht_am", "dauer", "folge_url"}
 RETRY_HINT = "Nach dem Anpassen des Vorschlags bitte erneut prüfen und `/approve` kommentieren (bei einem Kommentarvorschlag mit dessen Link)."
@@ -96,13 +114,13 @@ def read_form(body):
     """Erkennt das Formular am Aufbau des Vorschlags: (Name, Felder)."""
     best = ("", {})
     for path in sorted(sammlung.FORMS_PATH.glob("*.yml")):
-        if path.stem not in {"q-a", "general"}:
+        if path.stem not in FORMS:
             continue
         fields = parse_body(body, form_labels(path))
         if len(fields) > len(best[1]):
-            best = ("folge" if path.stem == "general" else "zitat", fields)
-    if len(best[1]) < 2:
-        raise Problem("Das Issue passt zu keinem unserer Formulare („Zitat vorschlagen“ oder „Folge eintragen“).")
+            best = (FORMS[path.stem], fields)
+    if len(best[1]) < 2 and "eintraege" not in best[1]:
+        raise Problem("Das Issue passt zu keinem unserer Formulare („Zitat vorschlagen“, „Mehrere Zitate“ oder „Folge eintragen“).")
     return best
 
 
@@ -253,6 +271,7 @@ def apply_episode(fields, columns, rows):
 
 
 def apply_quote(fields, columns, rows, status, additional):
+    additional = additional or one_line(fields.get("weiteres")).lower().startswith(FURTHER)
     number = quoted_number(fields.get("folge"))
     episode = [row for row in rows if number is not None and sammlung.episode_number(row.get("folge_id")) == number]
     if not episode:
@@ -274,9 +293,11 @@ def apply_quote(fields, columns, rows, status, additional):
         if kind not in ("", "Song"):
             raise Problem(f"Als Herkunft ist „{kind}“ gewählt, dazu passen kein Songtitel und kein Songlink.")
         kind = "Song"
-    # „Kein Zitat“: Die Folge beginnt ohne Zitat, im Feld Zitat stehen ihre ersten Worte
+    # „Kein Zitat“: Die Folge beginnt ohne Zitat, im Feld Zitat stehen ihre ersten Worte;
+    # wer sie sagt, darf auch unter „Woher“ stehen
     if kind == "Kein Zitat":
         origin = "Kein Zitat"
+        artist = artist or one_line(fields.get("herkunft_detail"))
     else:
         origin = "" if kind == "Song" else origin_text(kind, one_line(fields.get("herkunft_detail")))
     known = bool(origin) or bool(song or track)
@@ -288,12 +309,14 @@ def apply_quote(fields, columns, rows, status, additional):
         "spotify_link": f"https://open.spotify.com/track/{track}" if track else "",
         "herkunft": origin,
         "pruefstatus": status or ("bestätigt" if known else "offen"),
+        "anmerkung": one_line(fields.get("anmerkung")),
     }
     if additional and any(all(row.get(key, "") == value for key, value in data.items()) for row in episode):
         return Outcome(False, "Das zusätzliche Zitat steht schon genau so in der Sammlung.")
 
     target = episode[0]
-    if additional:
+    # Ein weiteres Zitat bekommt eine eigene Zeile, außer die Folge hat noch gar keins
+    if additional and any(row.get("zitat") for row in episode):
         target = {key: (episode[0].get(key, "") if key in EPISODE_COLUMNS else "") for key in columns}
         used = {row.get("verwendung_id") for row in episode}
         target["verwendung_id"] = next(
@@ -305,6 +328,8 @@ def apply_quote(fields, columns, rows, status, additional):
     if not changes and not additional:
         return Outcome(False, "Das Zitat steht schon genau so in der Sammlung, es gibt nichts zu ändern.")
     replaced = bool(target.get("zitat")) and not additional
+    if target.get("spotify_link", "") != data["spotify_link"] and target.get("spotify_status"):
+        target["spotify_status"] = ""  # neuer Link, die Prüfung im Wochenlauf fängt neu an
     target.update(data)
 
     title = f"#{number} {episode[0].get('folge_titel', '')}".strip()
@@ -321,6 +346,8 @@ def apply_quote(fields, columns, rows, status, additional):
         lines.append(f"- Herkunft: {safe(origin)}")
         if artist:
             lines.append(f"- Von: {safe(artist)}")
+    if data["anmerkung"]:
+        lines.append(f"- Anmerkung: {safe(data['anmerkung'])}")
     lines.append(f"- Prüfstatus: {data['pruefstatus']}")
     if replaced:
         lines.append(f"- Ersetzt den bisherigen Eintrag, geändert: {', '.join(QUOTE_LABELS[key] for key in changes)}")
@@ -342,6 +369,63 @@ def apply_episode_with_quote(fields, columns, rows, status, additional):
     if not quote.changed:
         return episode
     return Outcome(True, f"{episode.reply}\n\n{quote.reply}", f"Folge #{number} mit Zitat übernehmen")
+
+
+def bulk_entries(text):
+    """„Mehrere Zitate“: Blöcke aus „Folge: …“, „Zitat: …“ usw., jeder Block beginnt mit „Folge:“.
+    Alternativ eine aus einer Tabelle kopierte Liste mit Tabulatoren und Spaltennamen in der ersten Zeile."""
+    lines = [line for line in (text or "").replace("\r\n", "\n").split("\n") if line.strip()]
+    if any("\t" in line for line in lines):
+        header = [BULK_KEYS.get(one_line(cell).lower().rstrip(":")) for cell in lines[0].split("\t")]
+        if "folge" not in header:
+            raise Problem("Bei einer Tabelle bitte die erste Zeile mit den Spaltennamen mitkopieren, z. B. Folge, Zitat, Song, Interpret, Spotify.")
+        entries = [{key: cell for key, cell in zip(header, line.split("\t")) if key} for line in lines[1:]]
+    else:
+        entries, entry, key = [], {}, None
+        for line in lines:
+            found = re.match(r"\s*([^:]{1,20}?)\s*:\s*(.*)$", line)
+            name = BULK_KEYS.get(found.group(1).lower()) if found else None
+            if name:
+                if name == "folge" and entry:
+                    entries.append(entry)
+                    entry = {}
+                key = name
+                entry[key] = found.group(2)
+            elif key:
+                entry[key] += " " + line.strip()  # Fortsetzung, z. B. ein Zitat über mehrere Zeilen
+            elif line.strip() != "---":
+                raise Problem(f"Die Zeile „{one_line(line)[:60]}“ gehört zu keinem Eintrag. Jeder Eintrag beginnt mit „Folge:“.")
+        entries.append(entry)
+    # leere Vorlagenblöcke („Herkunft: Song“ ist vorausgefüllt) überspringen
+    return [entry for entry in entries if any(one_line(value) for key, value in entry.items() if key not in ("herkunft", "weiteres"))]
+
+
+def apply_many(fields, columns, rows, status, additional):
+    """Formular „Mehrere Zitate“: jeder Eintrag wie ein eigener Zitat-Vorschlag. Steht eine Folge
+    mehrmals drin, kommen die weiteren Zitate dazu, statt das erste zu ersetzen."""
+    entries = bulk_entries(fields.get("eintraege"))
+    if not entries:
+        raise Problem("Es steht kein Zitat drin. Jeder Eintrag beginnt mit „Folge:“.")
+    done, same, failed, seen = [], [], [], set()
+    for index, entry in enumerate(entries, 1):
+        number = quoted_number(entry.get("folge"))
+        before = [dict(row) for row in rows]
+        try:
+            outcome = apply_quote(entry, columns, rows, status, additional or number in seen)
+        except Problem as error:
+            rows[:] = before
+            failed.append(f"- Eintrag {index}{f' (#{number})' if number is not None else ''}: {safe(str(error))}")
+            continue
+        finally:
+            seen.add(number)
+        quote = clean_quote(entry.get("zitat"))
+        (done if outcome.changed else same).append(f"- #{number}: „{safe(quote[:80])}{'…' if len(quote) > 80 else ''}“")
+    lines = [f"Übernommen: {len(done)} von {len(entries)} Zitaten.", "", *done]
+    if same:
+        lines += ["", "Stand schon genau so in der Sammlung:", *same]
+    if failed:
+        lines += ["", "Nicht übernommen:", *failed, "", RETRY_HINT]
+    return Outcome(bool(done), "\n".join(lines).strip(), f"{len(done)} Zitate übernehmen", close=not failed)
 
 
 def read_options(comment):
@@ -373,6 +457,8 @@ def apply(issues, status="", additional=False, everything=False):
                 outcome = apply_episode_with_quote(fields, columns, rows, status, additional)
             elif form == "zitat":
                 outcome = apply_quote(fields, columns, rows, status, additional)
+            elif form == "mehrere":
+                outcome = apply_many(fields, columns, rows, status, additional)
             else:
                 raise Problem(f"Für das Formular „{form}“ gibt es keine automatische Übernahme.")
         except Problem as error:

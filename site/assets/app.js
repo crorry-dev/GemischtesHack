@@ -16,7 +16,6 @@ import {
   normalizeText,
   originGroup,
   originParts,
-  splitArtists,
   statusClass,
   statusInfo,
 } from "./data.js";
@@ -603,8 +602,8 @@ function renderMore(animate) {
   const counts = new Map();
   for (const usage of filtered.flatMap((episode) => episode.usages)) {
     if (usage.artist && (usage.status === "bestätigt" || (state.suspected && usage.status === "vermutet"))) {
-      // Features zählen mit: „B-Tight feat. Sido“ zählt für beide
-      for (const artist of splitArtists(usage.artist)) counts.set(artist, (counts.get(artist) || 0) + 1);
+      // Features zählen mit: „B-Tight feat. Sido“ zählt für beide, Schreibweisen sind vereinheitlicht
+      for (const artist of usage.artists) counts.set(artist, (counts.get(artist) || 0) + 1);
     }
   }
   const rows = [...counts].map(([artist, count]) => ({ artist, count }))
@@ -681,6 +680,7 @@ function renderCollectionStats(list) {
     ["Typische Folgenlänge", stats.median === null ? "–" : formatDuration(stats.median, { exact: false }),
       `Median aus ${formatNumber(stats.timed)} Folgen mit Laufzeit`],
     ["Spotify-Link fehlt", formatNumber(stats.missingLinks), "bei bestätigten Song-Zuordnungen"],
+    ["Spotify-Link geht nicht", formatNumber(stats.unavailableLinks), "Song bei Spotify nicht mehr abspielbar, neuer Link gesucht"],
   ].map(([label, value, note]) => {
     const fact = element("div", "fact");
     const description = element("dd");
@@ -1124,11 +1124,15 @@ function usageBlock(usage, position, waiting) {
       track.rel = "noopener noreferrer";
       track.append(playIcon(), "Song auf Spotify");
       song.append(track);
+      if (usage.linkUnavailable) {
+        song.append(element("small", "link-warning", "Der Link geht bei Spotify nicht mehr. Kennst du einen anderen? Schlag ihn unten vor."));
+      }
     }
     if (usage.review === "bestätigt") song.append(playlistNote(usage));
     add("Song", song);
   }
   if (isSongUsage(usage)) add("Interpret/in", usage.artist);
+  add("Anmerkung", usage.note);
   // Bei Nicht-Songs sagt der Prüfstatus, wie sicher die Herkunft ist
   if (position || usage.review !== "offen" || !isSongUsage(usage)) {
     const status = document.createDocumentFragment();
@@ -1303,6 +1307,7 @@ function issueLink(episode) {
   if (usage.artist) params.set("interpret", usage.artist);
   if (usage.trackUrl) params.set("spotify", usage.trackUrl);
   if (usage.origin) params.set("herkunft_detail", usage.origin);
+  if (usage.note) params.set("anmerkung", usage.note);
   return `${REPO}/discussions/new?${params}`;
 }
 

@@ -156,9 +156,10 @@ function buildEpisodes(records) {
     episode.url ||= record.folge_url || "";
     episode.usages.push(toUsage(record));
   }
-  const episodes = [...byId.values()];
+  const episodes = [...byId.values()].sort((a, b) => a.number - b.number || a.id.localeCompare(b.id));
+  unifyArtists(episodes.flatMap((episode) => episode.usages));
   for (const episode of episodes) finishEpisode(episode);
-  return episodes.sort((a, b) => a.number - b.number || a.id.localeCompare(b.id));
+  return episodes;
 }
 
 // Steht in „herkunft“ etwas anderes als ein Song (Film, Serie, Person …), ist das Zitat kein Song
@@ -184,7 +185,11 @@ function toUsage(record) {
     opening: opening ? record.zitat || "" : "",
     song: record.songtitel || "",
     artist: record.interpret || "",
+    artists: splitArtists(record.interpret),
     trackUrl: spotifyUrl(record.spotify_link || "", "track"),
+    // Der Wochenlauf prüft die Links (scripts/spotifylinks.py); nicht abspielbare bekommen einen Vermerk
+    linkUnavailable: Boolean(spotifyUrl(record.spotify_link || "", "track") && (record.spotify_status || "").trim()),
+    note: record.anmerkung || "",
     origin,
     review,
     status: opening ? "kein Zitat" : origin ? "kein Song" : review,
@@ -203,13 +208,43 @@ export function originGroup(usage) {
   return usage.quote ? "offen" : "";
 }
 
-// „B-Tight feat. Ben Salomo, Gauner & Sido“ → ["B-Tight", "Ben Salomo", "Gauner", "Sido"]. Vor dem „feat.“
-// bleibt der Name ganz, damit Bands wie „Simon & Garfunkel“ zusammenbleiben.
+// Namen mit „&“ oder Komma, die eine einzige Band oder ein Duo sind (Schreibweise wie bei Spotify)
+const GROUPS = ["Celo & Abdi", "Simon & Garfunkel", "Earth, Wind & Fire", "Tyler, The Creator"];
+const SEPARATOR = /\s*(?:,|;|&|\+|\s\/\s|\s-\s|\b(?:feat|ft|featuring|vs)\b\.?|\b(?:und|mit|with)\b|\sx\s)\s*/i;
+const GUESTS = /^\s*(?:(?:feat|ft|featuring|mit|with)\b|&)/i;
+
+// „B-Tight feat. Ben Salomo, Gauner & Sido“ → ["B-Tight", "Ben Salomo", "Gauner", "Sido"], ebenso mit „und“, „x“,
+// „mit“ oder Klammern: „Luvre47 (mit Bangs & Chapo)“. Andere Klammern sind Zusätze: „Tarek (K.I.Z.)“ → „Tarek“.
 export function splitArtists(text) {
-  const match = (text || "").match(/^(.*?)\s*\(?\s*\b(?:feat\.?|ft\.?|featuring)\s+(.*?)\)?$/i);
-  if (!match) return text ? [text.trim()] : [];
-  const guests = match[2].split(/\s*(?:,|&|\bund\b|\bfeat\.?|\bft\.?)\s*/i);
-  return [match[1], ...guests].map((name) => name.trim()).filter(Boolean);
+  const kept = [];
+  let rest = (text || "").replace(/\(([^)]*)\)/g, (all, inner) => (GUESTS.test(inner) ? `, ${inner}` : ""));
+  for (const group of GROUPS) {
+    rest = rest.replace(new RegExp(group.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), () => `\u0000${kept.push(group) - 1}\u0000`);
+  }
+  const names = rest.split(SEPARATOR)
+    .map((name) => name.replace(/\u0000(\d+)\u0000/g, (all, index) => kept[index]).trim())
+    .filter((name) => artistKey(name));
+  return names.filter((name, index) => names.findIndex((other) => artistKey(other) === artistKey(name)) === index);
+}
+
+// „UFO361“ und „Ufo361“, „K.I.Z“ und „K.I.Z.“ sind dieselben: nur Buchstaben und Ziffern zählen
+export function artistKey(name) {
+  return normalizeText(name || "").replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+// Jede Interpret:in unter einem Namen: die häufigste Schreibweise, bei Gleichstand die neueste
+function unifyArtists(usages) {
+  const spellings = new Map();
+  for (const usage of usages) {
+    for (const name of usage.artists) {
+      const counts = spellings.get(artistKey(name)) || new Map();
+      counts.set(name, (counts.get(name) || 0) + 1);
+      spellings.set(artistKey(name), counts);
+    }
+  }
+  const names = new Map([...spellings].map(([key, counts]) => [key,
+    [...counts].reduce((best, entry) => (entry[1] >= best[1] ? entry : best))[0]]));
+  for (const usage of usages) usage.artists = usage.artists.map((name) => names.get(artistKey(name)));
 }
 
 // Zitate aus Songs: alles außer Film, Person … und Folgen ohne Zitat
@@ -236,12 +271,12 @@ function finishEpisode(episode) {
     : episode.origin || (episode.opening ? `Beginnt mit „${shorten(episode.opening, 60)}“` : "");
   episode.artists = [...new Set(episode.usages
     .filter(isSongUsage)
-    .flatMap((usage) => splitArtists(usage.artist)))];
+    .flatMap((usage) => usage.artists))];
   episode.titleKey = normalizeText(episode.title);
   episode.search = normalizeText([
     `#${episode.id}`,
     episode.title,
-    ...episode.usages.flatMap((usage) => [usage.quote, usage.opening, usage.song, usage.artist, usage.origin]),
+    ...episode.usages.flatMap((usage) => [usage.quote, usage.opening, usage.song, usage.artist, ...usage.artists, usage.origin, usage.note]),
   ].join(" "));
 }
 

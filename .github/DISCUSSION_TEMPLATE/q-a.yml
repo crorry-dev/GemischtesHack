@@ -9,6 +9,7 @@ body:
         Die Community hilft beim Zuordnen und Prüfen. Kurator:innen geben den Startbeitrag mit /approve frei.
         Für einen anderen Vorschlag: den vollständigen Formulartext als Hauptkommentar posten und durch eine Kurator:in mit /approve plus Kommentar-Link freigeben lassen.
         Eine als Antwort markierte Lösung allein ist keine Freigabe. Veröffentlicht wird einmal pro Woche, bei Bedarf früher manuell.
+        Viele Zitate auf einmal? Dafür gibt es [Mehrere Zitate](https://github.com/crorry-dev/GemischtesHack/discussions/new?category=ideas), alles in einer Discussion.
 
   - type: input
     id: folge
@@ -25,6 +26,15 @@ body:
       description: Wortlaut oder kurze Beschreibung, so wie es in der Folge vorkommt. Beginnt die Folge ohne Zitat, hier ihre ersten Worte.
     validations:
       required: true
+
+  - type: dropdown
+    id: weiteres
+    attributes:
+      label: Erstes oder weiteres Zitat?
+      description: Selten beginnt eine Folge mit zwei Zitaten. Dann das zweite als weiteres eintragen.
+      options:
+        - Erstes Zitat der Folge
+        - Weiteres Zitat, das bisherige bleibt
 
   - type: dropdown
     id: herkunft
@@ -64,11 +74,11 @@ body:
     id: herkunft_detail
     attributes:
       label: Woher, wenn es kein Song ist
-      description: Der Film mit Jahr, die Person oder die Situation. Dafür gibt es keinen Spotify-Link, das Zitat kommt nicht in die Playlist.
+      description: Der Film mit Jahr, die Person oder die Situation, bei „Kein Zitat, nur Folgenanfang“ wer die ersten Worte sagt. Dafür gibt es keinen Spotify-Link, das Zitat kommt nicht in die Playlist.
       placeholder: z. B. „Ein Fisch namens Wanda (1988)“
 
   - type: textarea
     id: anmerkung
     attributes:
       label: Anmerkung
-      description: Optional, z. B. was an einem bestehenden Eintrag nicht stimmt
+      description: Optional, wird mit dem Zitat gespeichert und auf der Website gezeigt, z. B. „Song gibt es nicht bei Spotify“. Rückfragen an die Kurator:innen besser als Kommentar.

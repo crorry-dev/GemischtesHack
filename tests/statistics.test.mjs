@@ -71,3 +71,18 @@ test("real CSV produces internally consistent episode-based statistics", async (
     globalThis.fetch = originalFetch;
   }
 });
+
+test("artist spellings and separators are unified for the evaluation", async (t) => {
+  const csv = [
+    "verwendung_id,folge_id,folge_titel,zitat,interpret,spotify_link,pruefstatus,anmerkung,spotify_status",
+    "001-1,1,A,Eins,UFO361 feat. Gzuz,https://open.spotify.com/track/aaaaaaaaaaaaaaaaaaaaaa,bestätigt,,nicht verfügbar",
+    "002-1,2,B,Zwei,\"Ufo361, Sido (K.I.Z.)\",,bestätigt,Nicht bei Spotify,",
+    "003-1,3,C,Drei,Ufo361 x Celo & Abdi,,bestätigt,,",
+  ].join("\n");
+  t.mock.method(globalThis, "fetch", async () => new Response(csv));
+  const episodes = await loadData();
+  assert.deepEqual(episodes.map((episode) => episode.artists), [["Ufo361", "Gzuz"], ["Ufo361", "Sido"], ["Ufo361", "Celo & Abdi"]]);
+  assert.equal(episodes[0].usages[0].linkUnavailable, true);
+  assert.equal(episodes[1].usages[0].note, "Nicht bei Spotify");
+  assert.equal(collectionStats(episodes).unavailableLinks, 1);
+});

@@ -2031,6 +2031,14 @@ td {
   font-size: 13px;
 }
 
+/* Spotify-Link geht nicht mehr (scripts/spotifylinks.py) */
+.detail small.link-warning {
+  margin: 4px 0;
+  padding-left: 8px;
+  border-left: 3px solid var(--s-vermutet);
+  color: var(--text-2);
+}
+
 /* „Song auf Spotify“ im Folgenfenster */
 .track-link {
   display: flex;

@@ -21,6 +21,7 @@ export function collectionStats(episodes) {
     timed: durations.length,
     median: durations.length ? (durations[middle] + durations[Math.floor((durations.length - 1) / 2)]) / 2 : null,
     missingLinks: songs.filter((usage) => !usage.trackUrl).length,
+    unavailableLinks: songs.filter((usage) => usage.linkUnavailable).length,
   };
 }
 

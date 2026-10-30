@@ -95,11 +95,11 @@ body:
     id: herkunft_detail
     attributes:
       label: Woher, wenn es kein Song ist
-      description: Der Film mit Jahr, die Person oder die Situation. Dafür gibt es keinen Spotify-Link, das Zitat kommt nicht in die Playlist.
+      description: Der Film mit Jahr, die Person oder die Situation, bei „Kein Zitat, nur Folgenanfang“ wer die ersten Worte sagt. Dafür gibt es keinen Spotify-Link, das Zitat kommt nicht in die Playlist.
       placeholder: z. B. „Ein Fisch namens Wanda (1988)“
 
   - type: textarea
     id: anmerkung
     attributes:
       label: Anmerkung
-      description: Optional, z. B. was an einer bestehenden Folge nicht stimmt
+      description: Optional, wird mit dem Zitat gespeichert und auf der Website gezeigt, z. B. „Song gibt es nicht bei Spotify“. Was an einer bestehenden Folge nicht stimmt, bitte als Kommentar.

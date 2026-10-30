@@ -169,7 +169,7 @@ class ApiTests(unittest.TestCase):
             "createdAt": entry["createdAt"], "lastEditedAt": None, "author": entry["author"],
         }
         with patch("discussions.pages", side_effect=[
-            [entry, dict(entry, category={"slug": "ideas", "isAnswerable": False})], [source],
+            [entry, dict(entry, category={"slug": "polls", "isAnswerable": False})], [source],
         ]):
             result = discussions.fetch("test/repo", with_comments=True)
         self.assertEqual(len(result), 1)
@@ -177,20 +177,20 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(result[0]["user"]["type"], "User")
 
     def test_reply_marks_selected_answer_then_closes(self):
-        with patch("discussions.graphql") as api:
+        with patch("discussions.graphql") as api, patch("discussions.time.sleep"):
             discussions.reply(discussion(), "Übernommen", True, "DC_19")
         self.assertEqual(api.call_count, 3)
         self.assertIn("markDiscussionCommentAsAnswer", api.call_args_list[1].args[0])
         self.assertIn("closeDiscussion", api.call_args_list[2].args[0])
 
     def test_non_answerable_categories_are_closed_without_marking_answer(self):
-        with patch("discussions.graphql") as api:
+        with patch("discussions.graphql") as api, patch("discussions.time.sleep"):
             discussions.reply(dict(discussion(), answerable=False), "Übernommen", True, "DC_19")
         self.assertEqual(api.call_count, 2)
         self.assertIn("closeDiscussion", api.call_args_list[1].args[0])
 
     def test_failed_suggestion_is_not_marked_or_closed(self):
-        with patch("discussions.graphql") as api:
+        with patch("discussions.graphql") as api, patch("discussions.time.sleep"):
             discussions.reply(discussion(), "Bitte korrigieren", False, "DC_19")
         self.assertEqual(api.call_count, 1)
 

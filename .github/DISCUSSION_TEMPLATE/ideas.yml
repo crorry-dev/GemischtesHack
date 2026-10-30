@@ -1,0 +1,41 @@
+title: "Mehrere Zitate"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Viele Zitate auf einmal eintragen, statt für jedes eine eigene Discussion zu öffnen.
+        Je Zitat ein Block, der mit „Folge:“ beginnt. Unbekanntes einfach leer lassen oder weglassen.
+        Kurator:innen geben alles zusammen mit /approve frei. Fehlerhafte Einträge werden einzeln gemeldet, der Rest wird übernommen.
+
+        - **Herkunft:** Song, Film, Person, Sonstiges oder Kein Zitat (Folge beginnt ohne Zitat, dann unter Zitat die ersten Worte)
+        - **Woher:** bei Film, Person usw. die Quelle, bei Kein Zitat wer die ersten Worte sagt
+        - **Weiteres: ja**, wenn die Folge mit einem zweiten Zitat beginnt und das bisherige bleiben soll. Steht eine Folge zweimal in der Liste, gilt das automatisch.
+        - **Anmerkung:** wird mit dem Zitat gespeichert, z. B. „Song gibt es nicht bei Spotify“
+
+        Aus einer Tabelle geht es auch: Zeilen samt Kopfzeile (Folge, Zitat, Herkunft, Song, Interpret, Spotify, Woher, Anmerkung, Weiteres) kopieren und einfügen.
+
+  - type: textarea
+    id: eintraege
+    attributes:
+      label: Zitate
+      description: Den Block für jedes weitere Zitat kopieren.
+      value: |
+        Folge: 
+        Zitat: 
+        Herkunft: Song
+        Song: 
+        Interpret: 
+        Spotify: 
+        Woher: 
+        Anmerkung: 
+
+        Folge: 
+        Zitat: 
+        Herkunft: Song
+        Song: 
+        Interpret: 
+        Spotify: 
+        Woher: 
+        Anmerkung: 
+    validations:
+      required: true
