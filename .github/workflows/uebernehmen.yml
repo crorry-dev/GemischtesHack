@@ -54,15 +54,17 @@ jobs:
           SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
         run: python3 scripts/spotifylinks.py --commit
 
+  # Auch wenn danach eine Antwort fehlschlug: Die Übernahme ist dann schon gepusht.
   playlist:
     needs: apply
+    if: ${{ !cancelled() && needs.apply.result != 'skipped' }}
     uses: ./.github/workflows/playlist.yml
     secrets: inherit
 
   # Einmal veröffentlichen, auch wenn nur der Stand offener Vorschläge neu ist.
   pages:
     needs: [apply, playlist]
-    if: ${{ !cancelled() && needs.apply.result == 'success' }}
+    if: ${{ !cancelled() && needs.apply.result != 'skipped' }}
     uses: ./.github/workflows/pages.yml
     permissions:
       contents: read

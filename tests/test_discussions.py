@@ -1,5 +1,7 @@
 import contextlib
+import io
 import json
+import subprocess
 import sys
 import unittest
 from argparse import Namespace
@@ -29,6 +31,7 @@ Person
 Testperson
 """
 URL = "https://github.com/test/repo/discussions/10"
+TIMEOUT = subprocess.CompletedProcess([], 1, "", "gh: Something went wrong while executing your query on 2026-11-04T10:28:56Z.\n")
 
 
 def discussion():
@@ -140,10 +143,42 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(api.call_args.kwargs["cursor"], "next")
 
     def test_graphql_errors_are_not_treated_as_empty_data(self):
-        with patch("discussions.subprocess.run") as run:
-            run.return_value.stdout = '{"errors":[{"message":"Forbidden"}],"data":null}'
+        response = subprocess.CompletedProcess([], 0, '{"errors":[{"message":"Forbidden"}],"data":null}', "")
+        with patch("discussions.subprocess.run", return_value=response):
             with self.assertRaisesRegex(RuntimeError, "Forbidden"):
                 discussions.graphql("query")
+
+    def test_github_timeouts_are_retried(self):
+        response = subprocess.CompletedProcess([], 0, '{"data":{"node":null}}', "")
+        with patch("discussions.subprocess.run", side_effect=[TIMEOUT, response]) as run, \
+                patch("discussions.time.sleep"), contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(discussions.graphql("query"), {"node": None})
+        self.assertEqual(run.call_count, 2)
+
+    def test_lasting_timeouts_fail_after_last_retry(self):
+        with patch("discussions.subprocess.run", return_value=TIMEOUT) as run, \
+                patch("discussions.time.sleep"), contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(subprocess.CalledProcessError):
+                discussions.graphql("query")
+        self.assertEqual(run.call_count, len(discussions.PAUSES) + 1)
+
+    def test_other_errors_are_not_retried(self):
+        failure = subprocess.CompletedProcess([], 1, "", "gh: Could not resolve to a node with the global id of 'D_10'\n")
+        with patch("discussions.subprocess.run", return_value=failure) as run, \
+                patch("discussions.time.sleep"), contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(subprocess.CalledProcessError):
+                discussions.graphql("query")
+        self.assertEqual(run.call_count, 1)
+
+    def test_reply_that_arrived_despite_timeout_is_not_posted_twice(self):
+        found = subprocess.CompletedProcess(
+            [], 0, json.dumps({"data": {"node": {"comments": {"nodes": [{"body": "Bitte korrigieren\r\n"}]}}}}), "",
+        )
+        with patch("discussions.subprocess.run", side_effect=[TIMEOUT, found]) as run, \
+                patch("discussions.time.sleep"), contextlib.redirect_stderr(io.StringIO()):
+            discussions.reply(discussion(), "Bitte korrigieren", False)
+        self.assertEqual(run.call_count, 2)
+        self.assertIn("comments(last", run.call_args.args[0][4])
 
     def test_invalid_curator_configuration_fails(self):
         with patch("pathlib.Path.read_text", return_value='{"kuratoren":"everyone","kategorien":[]}'):
@@ -210,9 +245,36 @@ class BatchTests(unittest.TestCase):
             push = stack.enter_context(patch("uebernehmen.push", return_value=True))
             reply = stack.enter_context(patch("discussions.reply"))
             stack.enter_context(patch("builtins.print"))
-            stack.enter_context(patch.dict("os.environ", {"GITHUB_REPOSITORY": "test/repo", "GITHUB_REF_NAME": "main"}))
+            # clear: im Wochenlauf nichts in dessen GITHUB_STEP_SUMMARY schreiben
+            stack.enter_context(patch.dict(
+                "os.environ", {"GITHUB_REPOSITORY": "test/repo", "GITHUB_REF_NAME": "main"}, clear=True,
+            ))
             sammellauf.main()
         return api, apply, push, reply
+
+    def test_failed_reply_does_not_stop_the_others(self):
+        first = dict(discussion(), _comments=[comment("/approve all")])
+        second = dict(discussion(), number=11, discussion_id="D_11")
+        args = Namespace(offen="offen.json", alle=False, discussions=True, commit=True)
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(patch("sammellauf.argparse.ArgumentParser.parse_args", return_value=args))
+            stack.enter_context(patch("sammellauf.Path.read_text", return_value=json.dumps([first, second])))
+            stack.enter_context(patch("discussions.config", return_value={"kuratoren": ["Curator"]}))
+            stack.enter_context(patch("uebernehmen.apply", side_effect=lambda issues, *_: [
+                (issues[0], uebernehmen.Outcome(True, "Übernommen", "Zitat"))
+            ]))
+            stack.enter_context(patch("uebernehmen.push", return_value=True))
+            reply = stack.enter_context(patch("discussions.reply", side_effect=[
+                subprocess.CalledProcessError(1, "gh"), None,
+            ]))
+            output = stack.enter_context(patch("builtins.print"))
+            stack.enter_context(patch.dict(
+                "os.environ", {"GITHUB_REPOSITORY": "test/repo", "GITHUB_REF_NAME": "main"}, clear=True,
+            ))
+            with self.assertRaises(SystemExit):
+                sammellauf.main()
+        self.assertEqual([call.args[0]["number"] for call in reply.call_args_list], [10, 11])
+        self.assertIn("Ohne Antwort geblieben: #10.", output.call_args.args[0])
 
     def test_configured_curator_can_approve_without_repository_write_access(self):
         record = discussion()

@@ -10,6 +10,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import uebernehmen
@@ -135,9 +136,12 @@ def main():
         branch = os.environ["GITHUB_REF_NAME"]
         if not uebernehmen.push(uebernehmen.commit_message(results), branch):
             raise RuntimeError("Push fehlgeschlagen. Keine Vorschläge geschlossen; Sammellauf bitte erneut starten.")
+    failed = []
     for issue, outcome in results:
         print(f"#{issue['number']}: {outcome.reply}")
-        if args.commit:
+        if not args.commit:
+            continue
+        try:
             if issue.get("discussion_id"):
                 stamp = stamps[issue["number"]] if not outcome.close else ""
                 discussions.reply(issue, f"{outcome.reply}\n\n{stamp}".rstrip(),
@@ -153,11 +157,20 @@ def main():
                 input=f"{outcome.reply}\n\n{stamps[issue['number']]}",
                 text=True, check=True,
             )
+        except (subprocess.CalledProcessError, RuntimeError) as error:
+            # Die Übernahme ist schon gepusht; eine fehlende Antwort hält die übrigen nicht auf
+            print(f"#{issue['number']}: Antwort fehlgeschlagen: {error}", file=sys.stderr)
+            failed.append(f"#{issue['number']}")
     message = uebernehmen.summary(results)
+    if failed:
+        message += (f"\n\nOhne Antwort geblieben: {', '.join(failed)}. Übernommenes ist gespeichert; "
+                    "zum Nachholen dort erneut `/approve` kommentieren.")
     print(message)
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as file:
             file.write(message + "\n")
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

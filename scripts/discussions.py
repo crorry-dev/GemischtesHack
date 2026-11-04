@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 import time
 from datetime import datetime
 
@@ -11,6 +12,12 @@ import sammlung
 import uebernehmen
 
 CONFIG = sammlung.ROOT / ".github" / "kuratoren.json"
+# Zeitüberschreitung, Drosselung oder Serverfehler bei GitHub; nach einer Pause klappt es meist
+TRANSIENT = (
+    "Something went wrong while executing your query", "timeout", "timed out", "connection reset",
+    "secondary rate limit", "too quickly", "HTTP 502", "HTTP 503", "HTTP 504",
+)
+PAUSES = (10, 30, 90)
 
 
 def config():
@@ -21,12 +28,24 @@ def config():
     return value
 
 
-def graphql(query, **variables):
+def graphql(query, done=None, **variables):
+    """Vorübergehende Fehler werden nach einer Pause wiederholt. Ein Schreibzugriff kann trotz Fehler
+    angekommen sein; done() prüft das vor jedem neuen Versuch."""
     command = ["gh", "api", "graphql", "-f", f"query={query}"]
     for key, value in variables.items():
         if value is not None:
             command += ["-f", f"{key}={value}"]
-    response = json.loads(subprocess.run(command, check=True, stdout=subprocess.PIPE, text=True).stdout)
+    for pause in (*PAUSES, None):
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        sys.stderr.write(result.stderr)
+        if result.returncode == 0 or pause is None or not any(text in result.stderr for text in TRANSIENT):
+            break
+        print(f"Neuer Versuch in {pause} s.", file=sys.stderr)
+        time.sleep(pause)
+        if done and done():
+            return {}
+    result.check_returncode()
+    response = json.loads(result.stdout)
     if response.get("errors"):
         raise RuntimeError(json.dumps(response["errors"], ensure_ascii=False))
     return response["data"]
@@ -129,10 +148,19 @@ def proposal(discussion, approval):
                 answer_id=source.get("node_id"), source_url=source["html_url"])
 
 
-def mutate(query, **variables):
+def mutate(query, done=None, **variables):
     """GitHub drosselt viele Schreibzugriffe kurz hintereinander; eine Sekunde Abstand hält das Limit ein."""
     time.sleep(1)
-    return graphql(query, **variables)
+    return graphql(query, done, **variables)
+
+
+def posted(discussion_id, body):
+    """Ob eine Antwort trotz Fehlermeldung angekommen ist, damit sie nicht doppelt erscheint."""
+    data = graphql("""
+      query($id:ID!) { node(id:$id) { ... on Discussion { comments(last:20) { nodes { body } } } } }
+    """, id=discussion_id)
+    return any(comment["body"].replace("\r\n", "\n").strip() == body.strip()
+               for comment in data["node"]["comments"]["nodes"])
 
 
 def reply(discussion, body, close, answer_id=None):
@@ -140,7 +168,7 @@ def reply(discussion, body, close, answer_id=None):
       mutation($id:ID!, $body:String!) {
         addDiscussionComment(input:{discussionId:$id, body:$body}) { comment { id } }
       }
-    """, id=discussion["discussion_id"], body=body)
+    """, lambda: posted(discussion["discussion_id"], body), id=discussion["discussion_id"], body=body)
     if close:
         if answer_id and discussion["answerable"]:
             mutate("""
