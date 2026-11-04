@@ -20,6 +20,7 @@ import {
   statusInfo,
 } from "./data.js";
 import { hideTooltip, renderBars, renderDurations, renderTable, renderTimeline, renderYearBars } from "./charts.js";
+import { quizAnswer, quizPool, shuffle } from "./quiz.js";
 import { collectionStats, yearlyStats } from "./statistics.js";
 
 const REPO = "https://github.com/crorry-dev/GemischtesHack";
@@ -1197,15 +1198,26 @@ function embedSpotify(slot, kind, id, height, title) {
   slot.replaceChildren(frame);
 }
 
-// --- Zitat des Tages und Playlist ------------------------------------------------------
+// --- Zitat des Tages, Playlist und Quiz -------------------------------------------------
 
 let todayPool = [];
 let todayIndex = 0;
+let quizDeck = [];
+let quizIndex = -1;
+const quizScore = { right: 0, played: 0 };
 
 function setupSpotlight() {
   setupToday();
   setupPlaylistCard();
-  $("#spotlight").hidden = $("#today").hidden && $("#playlist-card").hidden;
+  setupQuiz();
+  $("#spotlight").hidden = $("#today").hidden && $("#playlist-card").hidden && $("#quiz").hidden;
+}
+
+function changeCard(card) {
+  if (reducedMotion.matches) return;
+  card.classList.remove("is-changing");
+  void card.offsetWidth;
+  card.classList.add("is-changing");
 }
 
 // Jeden Tag ein anderes Zitat, für alle gleich; „Anderes Zitat“ zieht zufällig ein weiteres
@@ -1219,7 +1231,10 @@ function setupToday() {
   $("#today-next").hidden = todayPool.length < 2;
   $("#today-next").addEventListener("click", () => {
     let next = todayIndex;
-    while (next === todayIndex) next = Math.floor(Math.random() * todayPool.length);
+    // nicht das Zitat, das im Quiz gerade verdeckt ist
+    while (next === todayIndex || (todayPool.length > 2 && todayPool[next].usage === quizDeck[quizIndex]?.usage)) {
+      next = Math.floor(Math.random() * todayPool.length);
+    }
     todayIndex = next;
     $("#today-label").textContent = "Zufälliges Zitat";
     $("#today-date").textContent = "";
@@ -1245,12 +1260,7 @@ function showToday(animate) {
   $("#today-episode").textContent = `aus #${episode.id} ${episode.title}${episode.date ? ` · ${formatDate(episode.date)}` : ""}`;
   $("#today-play").hidden = !(song && usage.trackUrl);
   $("#today-embed").replaceChildren();
-  if (animate && !reducedMotion.matches) {
-    const card = $("#today");
-    card.classList.remove("is-changing");
-    void card.offsetWidth;
-    card.classList.add("is-changing");
-  }
+  if (animate) changeCard($("#today"));
 }
 
 function dayNumber(text) {
@@ -1272,6 +1282,66 @@ function setupPlaylistCard() {
     embedSpotify($("#playlist-embed"), "playlist", playlistUrl.split("/").pop(), 352, "Spotify-Playlist zu Gemischtes Hack");
     $("#playlist-play").hidden = true;
   });
+}
+
+// Quiz „Wer hat’s gesagt?“: Herkunft verdeckt, erst raten, dann aufdecken und selbst werten
+function setupQuiz() {
+  quizDeck = shuffle(quizPool(episodes));
+  $("#quiz").hidden = quizDeck.length < 2;
+  if ($("#quiz").hidden) return;
+  $("#quiz-cover").addEventListener("click", revealQuiz);
+  $("#quiz-right").addEventListener("click", () => rateQuiz(true));
+  $("#quiz-wrong").addEventListener("click", () => rateQuiz(false));
+  $("#quiz-skip").addEventListener("click", () => nextQuiz(true));
+  nextQuiz(false);
+}
+
+function nextQuiz(animate) {
+  const previous = quizDeck[quizIndex];
+  // nicht zweimal dasselbe und nicht das Zitat, das daneben samt Herkunft als Zitat des Tages steht
+  do {
+    quizIndex += 1;
+    if (quizIndex === quizDeck.length) {
+      quizDeck = shuffle(quizDeck);
+      quizIndex = 0;
+    }
+  } while (quizDeck[quizIndex] === previous
+    || (quizDeck.length > 2 && quizDeck[quizIndex].usage === todayPool[todayIndex]?.usage));
+  $("#quiz-quote").textContent = quizDeck[quizIndex].usage.quote;
+  $("#quiz-answer").replaceChildren();
+  $("#quiz-cover").hidden = false;
+  $("#quiz-right").hidden = true;
+  $("#quiz-wrong").hidden = true;
+  $("#quiz-skip").hidden = false;
+  if (animate) changeCard($("#quiz"));
+}
+
+function revealQuiz() {
+  const { episode, usage } = quizDeck[quizIndex];
+  const answer = quizAnswer(usage);
+  const open = element("button", "text-button", `aus #${episode.id} ${episode.title}${episode.date ? ` · ${formatDate(episode.date)}` : ""}`);
+  open.type = "button";
+  open.addEventListener("click", () => openEpisode(episode.id));
+  $("#quiz-answer").replaceChildren(
+    element("span", "quiz-kind", answer.kind),
+    element("strong", "quiz-who", answer.who),
+    ...(answer.detail ? [element("span", "quiz-detail", answer.detail)] : []),
+    open,
+  );
+  $("#quiz-cover").hidden = true;
+  $("#quiz-right").hidden = false;
+  $("#quiz-wrong").hidden = false;
+  $("#quiz-skip").hidden = true;
+  // Die Abdeckung verschwindet; der Fokus wandert zur Wertung, sonst landet er im Nichts
+  $("#quiz-right").focus({ preventScroll: true });
+}
+
+function rateQuiz(right) {
+  quizScore.played += 1;
+  if (right) quizScore.right += 1;
+  $("#quiz-score").textContent = `${formatNumber(quizScore.right)} von ${formatNumber(quizScore.played)} gewusst`;
+  nextQuiz(true);
+  $("#quiz-cover").focus({ preventScroll: true });
 }
 
 async function shareEpisode() {

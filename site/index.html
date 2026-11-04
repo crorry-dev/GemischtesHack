@@ -58,7 +58,7 @@
         </div>
       </section>
 
-      <section class="spotlight" id="spotlight" aria-label="Zitat des Tages und Playlist" hidden>
+      <section class="spotlight" id="spotlight" aria-label="Zitat des Tages, Playlist und Quiz" hidden>
         <article class="feature today reveal" id="today" aria-labelledby="today-label" hidden>
           <p class="feature-kicker"><span id="today-label">Zitat des Tages</span> <span class="feature-date" id="today-date"></span></p>
           <blockquote class="today-quote" id="today-quote"></blockquote>
@@ -81,6 +81,26 @@
           </div>
           <div class="embed-slot" id="playlist-embed"></div>
           <p class="fine">Die Player laden erst nach dem Klick und übertragen dann Daten an Spotify.</p>
+        </article>
+        <article class="feature quiz reveal" id="quiz" aria-labelledby="quiz-label" hidden>
+          <div class="quiz-question">
+            <p class="feature-kicker"><span id="quiz-label">Wer hat’s gesagt?</span> <span class="feature-date" id="quiz-score" aria-live="polite"></span></p>
+            <blockquote class="quiz-quote" id="quiz-quote"></blockquote>
+          </div>
+          <div class="quiz-side">
+            <div class="quiz-slot">
+              <p class="quiz-answer" id="quiz-answer" aria-live="polite"></p>
+              <button class="quiz-cover" type="button" id="quiz-cover" aria-describedby="quiz-quote">
+                <span class="quiz-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/></svg></span>
+                <span class="quiz-cover-text"><strong>Aufdecken</strong> <small>Erst raten, dann antippen</small></span>
+              </button>
+            </div>
+            <div class="feature-actions quiz-actions">
+              <button class="button" type="button" id="quiz-right" hidden>Gewusst</button>
+              <button class="button button-quiet" type="button" id="quiz-wrong" hidden>Nicht gewusst</button>
+              <button class="text-button" type="button" id="quiz-skip">Überspringen</button>
+            </div>
+          </div>
         </article>
       </section>
 

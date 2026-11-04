@@ -37,7 +37,7 @@ jobs:
       - name: Check batch processing and statistics
         run: |
           python3 -m unittest discover -s tests -q
-          node --test tests/statistics.test.mjs
+          node --test tests/statistics.test.mjs tests/quiz.test.mjs
       - name: List all open suggestions
         run: python3 scripts/discussions.py --comments > "$RUNNER_TEMP/offen.json"
       - name: Apply approved suggestions in one commit
