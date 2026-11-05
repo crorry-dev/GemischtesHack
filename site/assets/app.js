@@ -55,6 +55,8 @@ const episodeSheet = $("#episode-sheet");
 const artistsSheet = $("#artists-sheet");
 const tipSheet = $("#tip-sheet");
 
+// Die Seite wird erst nach dem Laden aufgebaut; eine alte Scrollposition landete sonst mitten in der Liste
+if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 init();
 
 async function init() {
@@ -74,7 +76,7 @@ async function init() {
   setupFilters();
   setupSheets();
   setupList();
-  const listLink = /(?:^|[#&])(?:q|von|bis|status|interpret|herkunft|zitat|sort)=/.test(location.hash);
+  const listLink = /(?:^|[#&])(?:q|von|bis|status|interpret|herkunft|zitat|sort)=/.test(location.hash) && freshVisit();
   readHash();
   syncControls();
   render();
@@ -287,6 +289,20 @@ function readHash() {
   state.origin = ORIGIN_GROUPS.some((group) => group.key === params.get("herkunft")) ? params.get("herkunft") : "";
   state.quote = params.get("zitat") === "1";
   state.sort = SORTS[params.get("sort")] ? params.get("sort") : "neu";
+}
+
+// Filter bleiben in der Adresse. Neu laden, Zurück oder ein von Safari wiederhergestellter Tab sollen trotzdem
+// oben beim Zitat des Tages beginnen; nur ein frisch geöffneter geteilter Link springt direkt in die Liste.
+function freshVisit() {
+  const type = performance.getEntriesByType?.("navigation")[0]?.type;
+  let seen = false;
+  try {
+    seen = sessionStorage.getItem("besucht") === "1";
+    sessionStorage.setItem("besucht", "1");
+  } catch {
+    // ohne Speicher zählt jeder Aufruf als frisch
+  }
+  return !seen && type !== "reload" && type !== "back_forward";
 }
 
 function hashFor(extra = {}) {
