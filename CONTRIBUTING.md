@@ -59,7 +59,7 @@ Es gibt keine externen Laufzeit- oder Testabhängigkeiten.
 
 ```sh
 python3 -m unittest discover -s tests -q
-node --test tests/statistics.test.mjs
+node --test tests/statistics.test.mjs tests/quiz.test.mjs
 python3 -m http.server 8000 --bind 127.0.0.1
 ```
 
@@ -71,6 +71,20 @@ Produktivdaten oder Issues. Es sind keine Spotify-Secrets nötig.
 
 - [data/zitate.csv](data/zitate.csv): UTF-8, Komma, eine Zeile pro Verwendung.
   Eine Folge kann mehrere Zitate haben; `verwendung_id` muss eindeutig bleiben.
+- Spalte `interpret`: mehrere Beteiligte so schreiben, wie Spotify sie nennt –
+  Hauptinterpret:in zuerst, Gäste mit `feat.`, weitere mit `, ` oder ` & `, etwa
+  `Celo & Abdi feat. Haftbefehl, Xatar`. `ft.`, `featuring` und `(feat. …)` werden
+  beim Übernehmen zu `feat.` vereinheitlicht ([uebernehmen.py](scripts/uebernehmen.py)).
+  Die Statistik zerlegt den Text an `,` `;` `&` `+` ` / ` ` - ` ` x `, `feat.`,
+  `vs.`, `und`, `mit` und `with`; jede Person zählt einzeln. Klammern mit `feat.`,
+  `mit` oder `&` gelten als Gäste, andere Klammern (`(Remix)`) werden ignoriert.
+  Als Hauptinterpret:in (Playlist, gleicher Song) gilt alles vor `feat.`.
+- Bands und Duos, deren Name selbst ein Trennzeichen enthält (`Hammer & Zirkel`,
+  `Earth, Wind & Fire`, `Tyler, The Creator`), stehen in `GROUPS` in
+  [data.js](site/assets/data.js). Kommt ein neuer solcher Name dazu, ihn dort in
+  Spotify-Schreibweise ergänzen und in `tests/statistics.test.mjs` beim Test
+  „bands with a separator in their name stay together“ eine Zeile hinzufügen.
+  Ohne Eintrag würde aus `Hammer & Zirkel` „Hammer“ und „Zirkel“.
 - [scripts/](scripts/): Python-Standardbibliothek, gemeinsame Helfer in
   [sammlung.py](scripts/sammlung.py).
 - [Discussion-Formulare](.github/DISCUSSION_TEMPLATE/): Dateinamen müssen den

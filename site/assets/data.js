@@ -208,8 +208,16 @@ export function originGroup(usage) {
   return usage.quote ? "offen" : "";
 }
 
-// Namen mit „&“ oder Komma, die eine einzige Band oder ein Duo sind (Schreibweise wie bei Spotify)
-const GROUPS = ["Celo & Abdi", "Hammer & Zirkel", "Simon & Garfunkel", "Earth, Wind & Fire", "Tyler, The Creator", "Grover Washington, Jr."];
+// Bands und Duos, deren Name selbst ein Trennzeichen enthält („&“, Komma, „und“ …). Sie bleiben zusammen,
+// statt in Einzelpersonen zu zerfallen. Neue Namen in Spotify-Schreibweise ergänzen, siehe CONTRIBUTING.md.
+const GROUPS = [
+  "Celo & Abdi",
+  "Earth, Wind & Fire",
+  "Grover Washington, Jr.",
+  "Hammer & Zirkel",
+  "Simon & Garfunkel",
+  "Tyler, The Creator",
+];
 const SEPARATOR = /\s*(?:,|;|&|\+|\s\/\s|\s-\s|\b(?:feat|ft|featuring|vs)\b\.?|\b(?:und|mit|with)\b|\sx\s)\s*/i;
 const GUESTS = /^\s*(?:(?:feat|ft|featuring|mit|with)\b|&)/i;
 

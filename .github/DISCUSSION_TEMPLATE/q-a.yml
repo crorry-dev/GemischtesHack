@@ -60,7 +60,7 @@ body:
     id: interpret
     attributes:
       label: Interpret/in oder Autor/in
-      description: Bei Songs die Band oder der/die Künstler/in, mehrere mit „feat.“, z. B. „B-Tight feat. Sido“. Sonst wer es gesagt oder geschrieben hat.
+      description: Bei Songs wie bei Spotify, Gäste mit „feat.“, weitere mit „,“, z. B. „B-Tight feat. Sido, Fler“. Bandnamen wie „Celo & Abdi“ unverändert lassen. Sonst wer es gesagt oder geschrieben hat.
       placeholder: z. B. „Luvre47“
 
   - type: input

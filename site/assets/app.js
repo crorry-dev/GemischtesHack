@@ -21,9 +21,10 @@ import {
 } from "./data.js";
 import { renderInsights } from "./insights.js";
 import { quizAnswer, quizPool, shuffle } from "./quiz.js";
-import { countUp, setupScenes } from "./scenes.js";
+import { autoplay, ease, motion, span, startScenes, track } from "./scenes.js";
 
 const REPO = "https://github.com/crorry-dev/GemischtesHack";
+const TIP_URL = "https://paypal.me/tobcro/";
 const CHUNK = 40;
 const SORTS = {
   neu: (a, b) => b.number - a.number || b.id.localeCompare(a.id),
@@ -51,12 +52,15 @@ const $ = (selector) => document.querySelector(selector);
 const tabs = [...document.querySelectorAll("#status-tabs [role=radio]")];
 const filterSheet = $("#filter-sheet");
 const episodeSheet = $("#episode-sheet");
+const artistsSheet = $("#artists-sheet");
+const tipSheet = $("#tip-sheet");
 
 init();
 
 async function init() {
   setupTheme();
   setupToolbar();
+  setupTip();
   try {
     [episodes, playlistUrl, pending] = await Promise.all([loadData(), loadPlaylist(), loadPending()]);
     applyPending(episodes, pending);
@@ -74,18 +78,20 @@ async function init() {
   readHash();
   syncControls();
   render();
-  renderIntro();
   setupLinks();
   setupSpotlight();
   renderInsights($("#insights"), episodes, {
     episodeHref: (id) => `#${hashFor({ folge: id })}`,
-    onArtist: (name) => showList({ artist: name }),
+    onArtist: (name) => {
+      closeSheet(artistsSheet);
+      showList({ artist: name });
+    },
+    openArtists: () => openSheet(artistsSheet),
     onYear: (year) => showList({ from: year, to: year }),
     onOrigin: (key) => showList({ origin: key }),
     onStatus: (status) => showList({ status }),
-    onSearch: (q) => showList({ q }),
   });
-  setupScenes({ onEnter: (scene) => scene.querySelectorAll("[data-count]").forEach((node) => countUp(node, Number(node.dataset.count), (value) => formatNumber(value))) });
+  startScenes();
   // Geteilte Links mit Filtern landen direkt in der Liste
   if (listLink) $("#liste").scrollIntoView();
   openFromHash(false);
@@ -140,7 +146,7 @@ function setupToolbar() {
   const marker = document.createElement("div");
   marker.setAttribute("aria-hidden", "true");
   toolbar.before(marker);
-  new IntersectionObserver(([entry]) => toolbar.classList.toggle("is-stuck", !entry.isIntersecting)).observe(marker);
+  new IntersectionObserver(([entry]) => toolbar.classList.toggle("is-stuck", !entry.isIntersecting), { rootMargin: "-56px 0px 0px 0px" }).observe(marker);
 }
 
 function element(tag, className, content) {
@@ -408,17 +414,6 @@ function renderFilterNote() {
   note.replaceChildren(element("span", "", describeFilters()), reset);
 }
 
-function renderIntro() {
-  const found = episodes.filter((episode) => episode.hasQuote).length;
-  // Folgen, die ohne Zitat beginnen, können keins bekommen und zählen deshalb nicht mit
-  const possible = episodes.filter((episode) => episode.status !== "kein Zitat").length;
-  countUp($("#found-count"), found, (value) => formatNumber(value));
-  $("#total-count").textContent = formatNumber(possible);
-  requestAnimationFrame(() => {
-    $("#progress-bar").style.setProperty("--value", possible ? found / possible : 0);
-  });
-}
-
 // Playlist-Button, sobald ein Playlist-Link eingetragen ist, und „Folge #… eintragen“ (Liste und Aufruf unten)
 function setupLinks() {
   const next = Math.max(0, ...episodes.map((episode) => (Number.isFinite(episode.number) ? episode.number : 0))) + 1;
@@ -506,7 +501,7 @@ function yearHead(group) {
   const head = element("header", "year-head");
   const withQuote = group.episodes.filter((episode) => episode.hasQuote).length;
   head.append(
-    element("h3", "", String(group.key)),
+    element("h3", "gradient-text", String(group.key)),
     element("p", "", `${formatNumber(group.episodes.length)} ${group.episodes.length === 1 ? "Folge" : "Folgen"}${withQuote ? ` · ${formatNumber(withQuote)} mit Zitat` : ""}`),
   );
   return head;
@@ -537,20 +532,16 @@ function episodeRow(episode, index, grouped) {
     opening.append(element("span", "row-tag is-kein-zitat", "Kein Zitat"), `Beginnt mit „${episode.opening}“`);
     extra.append(opening);
   }
-  row.append(
-    element("span", "row-num", episode.id),
-    body,
-    extra,
-    element("span", `row-dot ${statusClass(episode.status)}`),
-    element("span", "sr-only", `Status: ${statusInfo(episode.status).label}`),
-  );
+  const status = element("span", "row-status");
+  status.append(element("span", `status-dot ${statusClass(episode.status)}`), statusInfo(episode.status).label);
+  row.append(element("span", "row-num", `#${episode.id}`), status, body, extra);
   return row;
 }
 
 // --- Sheets ------------------------------------------------------------------------------
 
 function setupSheets() {
-  for (const dialog of [filterSheet, episodeSheet]) {
+  for (const dialog of [filterSheet, episodeSheet, artistsSheet, tipSheet]) {
     dialog.addEventListener("cancel", (event) => {
       event.preventDefault();
       closeSheet(dialog);
@@ -846,32 +837,25 @@ function embedSpotify(slot, kind, id, height, title) {
 
 let todayPool = [];
 let todayIndex = 0;
+let todayWords = [];
+let todayProgress = 0;
 let quizDeck = [];
 let quizIndex = -1;
 const quizScore = { right: 0, played: 0 };
 
-// Die Karten stehen in eigenen Abschnitten; ohne Daten bleibt der ganze Abschnitt weg
+// Ohne Daten bleibt der ganze Abschnitt weg
 function setupSpotlight() {
   setupToday();
   setupPlaylistCard();
   setupQuiz();
-  for (const card of [$("#today"), $("#playlist-card"), $("#quiz")]) {
-    card.closest("section").hidden = card.hidden;
-    card.hidden = false;
-  }
 }
 
-function changeCard(card) {
-  if (reducedMotion.matches) return;
-  card.classList.remove("is-changing");
-  void card.offsetWidth;
-  card.classList.add("is-changing");
-}
-
-// Jeden Tag ein anderes Zitat, für alle gleich; „Anderes Zitat“ zieht zufällig ein weiteres
+// Jeden Tag ein anderes Zitat, für alle gleich. Beim Scrollen leuchtet es Wort für Wort auf,
+// danach erscheinen Herkunft und Knöpfe.
 function setupToday() {
   todayPool = episodes.flatMap((episode) => episode.usages.filter((usage) => usage.quote).map((usage) => ({ episode, usage })));
-  $("#today").hidden = todayPool.length === 0;
+  const section = $("#heute");
+  section.hidden = todayPool.length === 0;
   if (todayPool.length === 0) return;
   const now = new Date();
   todayIndex = dayNumber(`${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`) % todayPool.length;
@@ -895,20 +879,50 @@ function setupToday() {
     $("#today-play").hidden = true;
   });
   showToday(false);
+  autoplay(section, {
+    duration: 1800,
+    frame: ({ p, moving }) => {
+      todayProgress = moving ? p : 1;
+      lightToday();
+    },
+  });
+}
+
+function lightToday() {
+  const lit = todayWords.length * span(todayProgress, 0, 0.7) * 1.15;
+  $("#today-quote").style.setProperty("--lit", lit.toFixed(2));
+  $("#heute").classList.toggle("is-done", todayProgress > 0.6 || !motion());
 }
 
 function showToday(animate) {
   const { episode, usage } = todayPool[todayIndex];
   const song = isSongUsage(usage);
-  $("#today-quote").textContent = usage.quote;
+  const quote = $("#today-quote");
+  // Länge bestimmt die Schriftgröße, damit auch lange Zitate auf einen Bildschirm passen
+  quote.dataset.length = usage.quote.length > 220 ? "long" : usage.quote.length > 90 ? "medium" : "short";
+  quote.setAttribute("aria-label", usage.quote);
+  todayWords = usage.quote.split(/\s+/).filter(Boolean).map((word, index) => {
+    const span_ = element("span", "word", word);
+    span_.style.setProperty("--i", String(index));
+    span_.setAttribute("aria-hidden", "true");
+    return span_;
+  });
+  quote.replaceChildren(...todayWords.flatMap((word, index) => (index ? [" ", word] : [word])));
   const source = song
     ? [usage.song, usage.artist].filter(Boolean).join(" – ")
     : [originParts(usage.origin).filter(Boolean).join(" · "), usage.artist].filter(Boolean).join(" · ");
   $("#today-source").textContent = source ? `${song ? "♪ " : ""}${source}` : "Woher es stammt, ist noch offen.";
-  $("#today-episode").textContent = `aus #${episode.id} ${episode.title}${episode.date ? ` · ${formatDate(episode.date)}` : ""}`;
+  $("#today-episode").textContent = `#${episode.id} ${episode.title}${episode.date ? ` · ${formatDate(episode.date)}` : ""}`;
   $("#today-play").hidden = !(song && usage.trackUrl);
   $("#today-embed").replaceChildren();
-  if (animate) changeCard($("#today"));
+  if (animate) {
+    // ein neues Zitat leuchtet sofort ganz auf
+    todayProgress = 1;
+    $("#today").classList.remove("is-changing");
+    void $("#today").offsetWidth;
+    $("#today").classList.add("is-changing");
+  }
+  lightToday();
 }
 
 function dayNumber(text) {
@@ -917,57 +931,88 @@ function dayNumber(text) {
   return hash;
 }
 
+// Playlist: eine Platte dreht sich beim Scrollen, die Zahl der Songs zählt mit
 function setupPlaylistCard() {
-  $("#playlist-card").hidden = !playlistUrl;
+  const section = $("#playlist");
+  section.hidden = !playlistUrl;
   if (!playlistUrl) return;
   $("#playlist-link").href = playlistUrl;
   const songs = new Set(episodes.flatMap((episode) => episode.usages)
     .filter((usage) => usage.review === "bestätigt" && isSongUsage(usage) && usage.trackUrl)
     .map((usage) => usage.trackUrl)).size;
-  $("#playlist-count").dataset.count = String(songs);
-  $("#playlist-title small").textContent = songs === 1 ? "Song" : "Songs";
+  $("#playlist-title").setAttribute("aria-label", `${formatNumber(songs)} Songs`);
   $("#playlist-play").addEventListener("click", () => {
     embedSpotify($("#playlist-embed"), "playlist", playlistUrl.split("/").pop(), 352, "Spotify-Playlist zu Gemischtes Hack");
     $("#playlist-play").hidden = true;
+    section.classList.add("is-playing");
+  });
+  autoplay(section, {
+    duration: 2200,
+    frame: ({ p, moving }) => {
+      const counted = moving ? span(p, 0, 0.7) : 1;
+      $("#playlist-count").textContent = formatNumber(Math.round(songs * ease(counted)));
+      section.classList.toggle("is-done", !moving || p > 0.6);
+    },
   });
 }
 
-// Quiz „Wer hat’s gesagt?“: Herkunft verdeckt, erst raten, dann aufdecken und selbst werten
+// Quiz „Wer hat’s gesagt?“: Die Karte zeigt das Zitat; Antippen dreht sie um, hinten steht, wer es war
 function setupQuiz() {
   quizDeck = shuffle(quizPool(episodes));
-  $("#quiz").hidden = quizDeck.length < 2;
-  if ($("#quiz").hidden) return;
+  const section = $("#raten");
+  section.hidden = quizDeck.length < 2;
+  if (section.hidden) return;
   $("#quiz-cover").addEventListener("click", revealQuiz);
   $("#quiz-right").addEventListener("click", () => rateQuiz(true));
   $("#quiz-wrong").addEventListener("click", () => rateQuiz(false));
   $("#quiz-skip").addEventListener("click", () => nextQuiz(true));
   nextQuiz(false);
+  track(section);
 }
 
 function nextQuiz(animate) {
-  const previous = quizDeck[quizIndex];
-  // nicht zweimal dasselbe und nicht das Zitat, das daneben samt Herkunft als Zitat des Tages steht
-  do {
-    quizIndex += 1;
-    if (quizIndex === quizDeck.length) {
-      quizDeck = shuffle(quizDeck);
-      quizIndex = 0;
-    }
-  } while (quizDeck[quizIndex] === previous
-    || (quizDeck.length > 2 && quizDeck[quizIndex].usage === todayPool[todayIndex]?.usage));
-  $("#quiz-quote").textContent = quizDeck[quizIndex].usage.quote;
-  $("#quiz-answer").replaceChildren();
-  $("#quiz-cover").hidden = false;
-  $("#quiz-right").hidden = true;
-  $("#quiz-wrong").hidden = true;
-  $("#quiz-skip").hidden = false;
-  if (animate) changeCard($("#quiz"));
+  const card = $("#quiz");
+  const fill = () => {
+    const previous = quizDeck[quizIndex];
+    // nicht zweimal dasselbe und nicht das Zitat, das gerade als Zitat des Tages zu sehen ist
+    do {
+      quizIndex += 1;
+      if (quizIndex === quizDeck.length) {
+        quizDeck = shuffle(quizDeck);
+        quizIndex = 0;
+      }
+    } while (quizDeck[quizIndex] === previous
+      || (quizDeck.length > 2 && quizDeck[quizIndex].usage === todayPool[todayIndex]?.usage));
+    const quote = quizDeck[quizIndex].usage.quote;
+    $("#quiz-quote").textContent = quote;
+    $("#quiz-quote").dataset.length = quote.length > 220 ? "long" : quote.length > 90 ? "medium" : "short";
+    $("#quiz-answer").replaceChildren();
+    card.classList.remove("is-flipped");
+    $("#quiz-cover").disabled = false;
+    $("#quiz-right").hidden = true;
+    $("#quiz-wrong").hidden = true;
+    $("#quiz-skip").hidden = false;
+  };
+  if (!animate || !motion()) {
+    fill();
+    return;
+  }
+  // Karte fliegt raus, die nächste kommt von rechts
+  card.classList.add("is-leaving");
+  setTimeout(() => {
+    card.classList.add("no-flip");
+    fill();
+    card.classList.remove("is-leaving");
+    card.classList.add("is-entering");
+    void card.offsetWidth;
+    card.classList.remove("no-flip", "is-entering");
+  }, 320);
 }
 
 function revealQuiz() {
   const { episode, usage } = quizDeck[quizIndex];
   const answer = quizAnswer(usage);
-  const open = element("button", "text-button", `aus #${episode.id} ${episode.title}${episode.date ? ` · ${formatDate(episode.date)}` : ""}`);
+  const open = element("button", "text-button", `#${episode.id} ${episode.title}`);
   open.type = "button";
   open.addEventListener("click", () => openEpisode(episode.id));
   $("#quiz-answer").replaceChildren(
@@ -976,20 +1021,20 @@ function revealQuiz() {
     ...(answer.detail ? [element("span", "quiz-detail", answer.detail)] : []),
     open,
   );
-  $("#quiz-cover").hidden = true;
+  $("#quiz").classList.add("is-flipped");
+  $("#quiz-cover").disabled = true;
   $("#quiz-right").hidden = false;
   $("#quiz-wrong").hidden = false;
   $("#quiz-skip").hidden = true;
-  // Die Abdeckung verschwindet; der Fokus wandert zur Wertung, sonst landet er im Nichts
   $("#quiz-right").focus({ preventScroll: true });
 }
 
 function rateQuiz(right) {
   quizScore.played += 1;
   if (right) quizScore.right += 1;
-  $("#quiz-score").textContent = `${formatNumber(quizScore.right)} von ${formatNumber(quizScore.played)} gewusst`;
+  $("#quiz-score").textContent = `${formatNumber(quizScore.right)} / ${formatNumber(quizScore.played)}`;
   nextQuiz(true);
-  $("#quiz-cover").focus({ preventScroll: true });
+  setTimeout(() => $("#quiz-cover").focus({ preventScroll: true }), motion() ? 340 : 0);
 }
 
 async function shareEpisode() {
@@ -1043,11 +1088,54 @@ function episodeIssueLink(episode) {
   return `${REPO}/discussions/new?${params}`;
 }
 
+// --- Eine Runde ausgeben: dezent in der Fußzeile, Beträge wie auf einer Imbiss-Karte -------------
+
+function setupTip() {
+  const pay = $("#tip-pay");
+  const amountInput = $("#tip-amount");
+  const error = $("#tip-error");
+  const radios = [...document.querySelectorAll('#tip-sheet input[name="tip"]')];
+  // „7,5“ oder „7.50“ → 7.5; nur 1 bis 500 Euro mit höchstens zwei Nachkommastellen
+  const amount = () => {
+    const choice = radios.find((radio) => radio.checked)?.value;
+    if (choice !== "frei") return Number(choice);
+    const text = amountInput.value.trim().replace(",", ".");
+    if (!/^\d{1,3}(\.\d{1,2})?$/.test(text)) return null;
+    const value = Number(text);
+    return value >= 1 && value <= 500 ? value : null;
+  };
+  const sync = () => {
+    const value = amount();
+    const free = radios.find((radio) => radio.checked)?.value === "frei";
+    error.hidden = value !== null || !free || amountInput.value.trim() === "";
+    error.textContent = "Bitte einen Betrag zwischen 1 und 500 Euro eingeben.";
+    pay.setAttribute("aria-disabled", String(value === null));
+    pay.classList.toggle("is-disabled", value === null);
+    const euros = value === null ? "" : formatNumber(value, Number.isInteger(value) ? 0 : 2);
+    pay.textContent = value === null ? "Betrag eingeben" : `Mit PayPal spendieren · ${euros} €`;
+    pay.href = value === null ? TIP_URL : `${TIP_URL}${value}EUR`;
+  };
+  for (const radio of radios) radio.addEventListener("change", () => {
+    if (radio.value === "frei") amountInput.focus();
+    sync();
+  });
+  amountInput.addEventListener("focus", () => {
+    radios.find((radio) => radio.value === "frei").checked = true;
+    sync();
+  });
+  amountInput.addEventListener("input", sync);
+  pay.addEventListener("click", (event) => {
+    if (amount() === null) event.preventDefault();
+  });
+  $("#tip-open").addEventListener("click", () => openSheet(tipSheet));
+  sync();
+}
+
 // --- Tastatur -------------------------------------------------------------------------------
 
 function handleShortcuts(event) {
   const typing = event.target.closest("input, select, textarea");
-  if (event.key === "/" && !typing && !filterSheet.open && !episodeSheet.open) {
+  if (event.key === "/" && !typing && !document.querySelector("dialog[open]")) {
     event.preventDefault();
     $("#search").focus();
   } else if (episodeSheet.open && !typing && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {

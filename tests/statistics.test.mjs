@@ -98,6 +98,24 @@ test("artist spellings and separators are unified for the evaluation", async (t)
   assert.equal(collectionStats(episodes).unavailableLinks, 1);
 });
 
+test("bands with a separator in their name stay together", async (t) => {
+  const csv = [
+    "verwendung_id,folge_id,folge_titel,zitat,interpret,pruefstatus",
+    "001-1,1,A,Eins,Celo & Abdi feat. Haftbefehl & Xatar,bestätigt",
+    "002-1,2,B,Zwei,Hammer & Zirkel,bestätigt",
+    "003-1,3,C,Drei,\"Bill Withers und Grover Washington, Jr.\",bestätigt",
+    "004-1,4,D,Vier,OG Keemo & Kwam.E,bestätigt",
+  ].join("\n");
+  t.mock.method(globalThis, "fetch", async () => new Response(csv));
+  const episodes = await loadData();
+  assert.deepEqual(episodes.map((episode) => episode.artists), [
+    ["Celo & Abdi", "Haftbefehl", "Xatar"],
+    ["Hammer & Zirkel"],
+    ["Bill Withers", "Grover Washington, Jr."],
+    ["OG Keemo", "Kwam.E"],
+  ]);
+});
+
 async function episodesFrom(t, lines) {
   const csv = ["verwendung_id,folge_id,folge_titel,zitat,songtitel,interpret,spotify_link,herkunft,pruefstatus", ...lines].join("\n");
   t.mock.method(globalThis, "fetch", async () => new Response(csv));
