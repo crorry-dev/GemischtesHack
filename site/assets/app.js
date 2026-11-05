@@ -19,9 +19,9 @@ import {
   statusClass,
   statusInfo,
 } from "./data.js";
-import { hideTooltip, renderBars, renderDurations, renderTable, renderTimeline, renderYearBars } from "./charts.js";
+import { renderInsights } from "./insights.js";
 import { quizAnswer, quizPool, shuffle } from "./quiz.js";
-import { collectionStats, yearlyStats } from "./statistics.js";
+import { countUp, setupScenes } from "./scenes.js";
 
 const REPO = "https://github.com/crorry-dev/GemischtesHack";
 const CHUNK = 40;
@@ -32,9 +32,8 @@ const SORTS = {
 };
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 const desktop = window.matchMedia("(min-width: 960px)");
-const phone = window.matchMedia("(max-width: 599px)");
 
-const state = { q: "", from: 0, to: 0, status: "", artist: "", origin: "", quote: false, suspected: false, sort: "neu" };
+const state = { q: "", from: 0, to: 0, status: "", artist: "", origin: "", quote: false, sort: "neu" };
 let episodes = [];
 let playlistUrl = null;
 let pending = [];
@@ -43,12 +42,10 @@ let artists = [];
 let filtered = [];
 let groups = [];
 let cursor = { group: 0, index: 0, list: null };
-let timelineShown = false;
 let currentEpisode = null;
 let openedByNavigation = false;
 let closingFromHash = false;
 let toastTimer;
-const tables = new Set();
 
 const $ = (selector) => document.querySelector(selector);
 const tabs = [...document.querySelectorAll("#status-tabs [role=radio]")];
@@ -73,13 +70,24 @@ async function init() {
   setupFilters();
   setupSheets();
   setupList();
+  const listLink = /(?:^|[#&])(?:q|von|bis|status|interpret|herkunft|zitat|sort)=/.test(location.hash);
   readHash();
   syncControls();
   render();
   renderIntro();
   setupLinks();
   setupSpotlight();
-  setupReveal();
+  renderInsights($("#insights"), episodes, {
+    episodeHref: (id) => `#${hashFor({ folge: id })}`,
+    onArtist: (name) => showList({ artist: name }),
+    onYear: (year) => showList({ from: year, to: year }),
+    onOrigin: (key) => showList({ origin: key }),
+    onStatus: (status) => showList({ status }),
+    onSearch: (q) => showList({ q }),
+  });
+  setupScenes({ onEnter: (scene) => scene.querySelectorAll("[data-count]").forEach((node) => countUp(node, Number(node.dataset.count), (value) => formatNumber(value))) });
+  // Geteilte Links mit Filtern landen direkt in der Liste
+  if (listLink) $("#liste").scrollIntoView();
   openFromHash(false);
 
   window.addEventListener("hashchange", () => {
@@ -97,7 +105,6 @@ async function init() {
     if (width === lastWidth) return;
     lastWidth = width;
     moveIndicator();
-    requestAnimationFrame(() => renderCharts(false));
   }).observe($("main"));
   document.addEventListener("keydown", handleShortcuts);
 }
@@ -136,47 +143,6 @@ function setupToolbar() {
   new IntersectionObserver(([entry]) => toolbar.classList.toggle("is-stuck", !entry.isIntersecting)).observe(marker);
 }
 
-function setupReveal() {
-  const items = [...document.querySelectorAll(".reveal")];
-  const show = (item) => {
-    item.classList.add("is-visible");
-    if (item.id === "timeline-panel" && !timelineShown) {
-      timelineShown = true;
-      renderTimelinePanel(true);
-    }
-  };
-  if (!("IntersectionObserver" in window) || reducedMotion.matches) {
-    items.forEach(show);
-    return;
-  }
-  const observer = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (!entry.isIntersecting) continue;
-      show(entry.target);
-      observer.unobserve(entry.target);
-    }
-  }, { threshold: 0, rootMargin: "0px 0px -30px 0px" });
-  items.forEach((item) => observer.observe(item));
-}
-
-function countUp(element, to, format = (value) => formatNumber(value)) {
-  const from = Number(element.dataset.value || 0);
-  element.dataset.value = String(to);
-  if (reducedMotion.matches || from === to) {
-    element.textContent = format(to);
-    return;
-  }
-  const start = performance.now();
-  const duration = 900;
-  const tick = (now) => {
-    const progress = Math.min(1, (now - start) / duration);
-    const eased = 1 - (1 - progress) ** 3;
-    element.textContent = format(Math.round(from + (to - from) * eased));
-    if (progress < 1) requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
-}
-
 function element(tag, className, content) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -196,8 +162,7 @@ function showError(error) {
   const notice = $("#load-error");
   notice.textContent = `${error.message} Bitte später noch einmal versuchen oder einen Issue im Repository eröffnen.`;
   notice.hidden = false;
-  for (const selector of ["#toolbar", ".overview", ".list-section"]) $(selector).hidden = true;
-  document.querySelectorAll(".reveal").forEach((item) => item.classList.add("is-visible"));
+  for (const selector of ["#insights", "#liste"]) $(selector).hidden = true;
 }
 
 // --- Filter und Adresse -------------------------------------------------------------
@@ -267,10 +232,6 @@ function setupFilters() {
     state.quote = event.target.checked;
     update();
   });
-  $("#with-suspected").addEventListener("change", (event) => {
-    state.suspected = event.target.checked;
-    update();
-  });
   $("#filter-reset").addEventListener("click", () => {
     resetFilters();
     update();
@@ -286,7 +247,6 @@ function resetFilters() {
     artist: "",
     origin: "",
     quote: false,
-    suspected: false,
     sort: "neu",
   });
 }
@@ -295,8 +255,18 @@ function update() {
   syncControls();
   render();
   writeHash();
-  const listTop = $("#liste").getBoundingClientRect().top + window.scrollY - $("#toolbar").offsetHeight;
+  const listTop = $("#liste").getBoundingClientRect().top + window.scrollY;
   if (window.scrollY > listTop) window.scrollTo({ top: listTop, behavior: reducedMotion.matches ? "auto" : "smooth" });
+}
+
+// Aus den Statistiken in die Liste: nur dieser eine Filter, dann zur Liste scrollen
+function showList(filter) {
+  resetFilters();
+  Object.assign(state, filter);
+  syncControls();
+  render();
+  writeHash();
+  $("#liste").scrollIntoView({ behavior: reducedMotion.matches ? "auto" : "smooth" });
 }
 
 function readHash() {
@@ -310,7 +280,6 @@ function readHash() {
   state.artist = artists.find((artist) => artist === params.get("interpret")) || "";
   state.origin = ORIGIN_GROUPS.some((group) => group.key === params.get("herkunft")) ? params.get("herkunft") : "";
   state.quote = params.get("zitat") === "1";
-  state.suspected = params.get("vermutet") === "1";
   state.sort = SORTS[params.get("sort")] ? params.get("sort") : "neu";
 }
 
@@ -323,7 +292,6 @@ function hashFor(extra = {}) {
   if (state.artist) params.set("interpret", state.artist);
   if (state.origin) params.set("herkunft", state.origin);
   if (state.quote) params.set("zitat", "1");
-  if (state.suspected) params.set("vermutet", "1");
   if (state.sort !== "neu") params.set("sort", state.sort);
   for (const [key, value] of Object.entries(extra)) {
     if (value) params.set(key, value);
@@ -354,8 +322,7 @@ function syncControls() {
   $("#origin").value = state.origin;
   for (const input of document.querySelectorAll("#sort-control input")) input.checked = input.value === state.sort;
   $("#only-quotes").checked = state.quote;
-  $("#with-suspected").checked = state.suspected;
-  const active = [isNarrowed(), state.artist, state.origin, state.quote, state.suspected, state.sort !== "neu"].filter(Boolean).length;
+  const active = [isNarrowed(), state.artist, state.origin, state.quote, state.sort !== "neu"].filter(Boolean).length;
   const badge = $("#filter-badge");
   badge.hidden = active === 0;
   badge.textContent = String(active);
@@ -422,30 +389,34 @@ function render() {
     tab.querySelector(".tab-count").textContent = formatNumber(count);
   }
   requestAnimationFrame(moveIndicator);
-  $("#overview-note").textContent = describeFilters();
-  renderStats(filtered);
-  renderOrigins();
-  renderCharts(false);
+  renderFilterNote();
   resetList();
+}
+
+// Welche Filter gerade wirken, mit einem Knopf zum Zurücksetzen
+function renderFilterNote() {
+  const note = $("#filter-note");
+  const active = isNarrowed() || state.status || state.artist || state.origin || state.quote || state.q;
+  note.hidden = !active;
+  if (!active) return;
+  const reset = element("button", "text-button", "Alle zeigen");
+  reset.type = "button";
+  reset.addEventListener("click", () => {
+    resetFilters();
+    update();
+  });
+  note.replaceChildren(element("span", "", describeFilters()), reset);
 }
 
 function renderIntro() {
   const found = episodes.filter((episode) => episode.hasQuote).length;
   // Folgen, die ohne Zitat beginnen, können keins bekommen und zählen deshalb nicht mit
-  const withoutQuote = episodes.filter((episode) => episode.status === "kein Zitat").length;
-  const possible = episodes.length - withoutQuote;
-  const seconds = episodes.reduce((sum, episode) => sum + (episode.duration || 0), 0);
-  countUp($("#found-count"), found);
+  const possible = episodes.filter((episode) => episode.status !== "kein Zitat").length;
+  countUp($("#found-count"), found, (value) => formatNumber(value));
   $("#total-count").textContent = formatNumber(possible);
   requestAnimationFrame(() => {
     $("#progress-bar").style.setProperty("--value", possible ? found / possible : 0);
   });
-  const parts = [`${formatNumber(episodes.length)} Folgen`];
-  if (withoutQuote) parts.push(`${formatNumber(withoutQuote)} ohne Zitat`);
-  if (pending.length) parts.push(`${formatNumber(pending.length)} ${pending.length === 1 ? "Vorschlag" : "Vorschläge"} in Prüfung`);
-  if (seconds) parts.push(`${formatNumber(Math.round(seconds / 3600))} Stunden`);
-  if (years.length) parts.push(`seit ${years[0]}`);
-  $("#intro-meta").textContent = parts.join(" · ");
 }
 
 // Playlist-Button, sobald ein Playlist-Link eingetragen ist, und „Folge #… eintragen“ (Liste und Aufruf unten)
@@ -462,319 +433,6 @@ function setupLinks() {
   $("#add-episode .add-meta").textContent = waiting
     ? `Vorschlag #${waiting.issue} ansehen, über GitHub`
     : "Neue oder fehlende Folge, auf Wunsch gleich mit Zitat – über GitHub";
-}
-
-// Anteil der Folgen mit Zitat; Folgen, die ohne Zitat beginnen, stehen extra daneben
-function quoteShare(list, quotes) {
-  const withoutQuote = list.filter((episode) => episode.status === "kein Zitat").length;
-  const possible = list.length - withoutQuote;
-  if (!possible) return withoutQuote ? `${formatNumber(withoutQuote)} Folgen ohne Zitat` : "–";
-  const share = `${Math.round((quotes / possible) * 100)} %`;
-  return withoutQuote ? `${share} · ${formatNumber(withoutQuote)} Folgen ohne Zitat` : `${share} der Folgen`;
-}
-
-function renderStats(list) {
-  const durations = list.map((episode) => episode.duration).filter(Boolean);
-  const seconds = durations.reduce((sum, value) => sum + value, 0);
-  const usages = list.flatMap((episode) => episode.usages);
-  const quotes = list.filter((episode) => episode.hasQuote).length;
-  const confirmedSongs = usages.filter((usage) => usage.status === "bestätigt" && (usage.song || usage.trackUrl));
-  const confirmed = confirmedSongs.length;
-  // jeder Song steht nur einmal in der Playlist, auch wenn er in mehreren Folgen vorkommt
-  const linked = new Set(confirmedSongs.map((usage) => usage.trackUrl).filter(Boolean)).size;
-  const dated = list.filter((episode) => episode.year).map((episode) => episode.year);
-  const items = [
-    { key: "episodes", label: "Folgen", value: list.length, sub: list.length === episodes.length ? "insgesamt" : `von ${formatNumber(episodes.length)}` },
-    { key: "quotes", label: "Zitate erfasst", value: quotes, sub: quoteShare(list, quotes) },
-    { key: "songs", label: "Songs bestätigt", value: confirmed, sub: confirmed ? `${formatNumber(linked)} davon für die Playlist` : "landen in der Playlist" },
-    durations.length
-      ? { key: "hours", label: "Stunden", value: Math.round(seconds / 3600), sub: `Ø ${formatDuration(seconds / durations.length, { exact: false })} pro Folge` }
-      : { key: "span", label: "Zeitraum", text: dated.length ? `${Math.min(...dated)}–${Math.max(...dated)}` : "–", sub: "Länge noch nicht erfasst" },
-  ];
-
-  const container = $("#stats");
-  if (container.dataset.keys !== items.map((item) => item.key).join()) {
-    container.dataset.keys = items.map((item) => item.key).join();
-    container.replaceChildren(...items.map((item) => {
-      const stat = element("div", "stat");
-      stat.dataset.key = item.key;
-      const value = element("dd");
-      value.append(element("span", "stat-value"), element("span", "stat-sub"));
-      stat.append(element("dt", "", item.label), value);
-      return stat;
-    }));
-  }
-  for (const item of items) {
-    const stat = container.querySelector(`[data-key="${item.key}"]`);
-    const value = stat.querySelector(".stat-value");
-    value.classList.toggle("is-text", Boolean(item.text));
-    if (item.text) value.textContent = item.text;
-    else countUp(value, item.value);
-    stat.querySelector(".stat-sub").textContent = item.sub;
-  }
-}
-
-// Woher die Zitate stammen: alle Filter außer der Herkunft selbst, damit alle Balken sichtbar bleiben
-function renderOrigins() {
-  const counts = new Map(ORIGIN_GROUPS.map((group) => [group.key, 0]));
-  for (const episode of episodes.filter((item) => matches(item, false, true))) {
-    for (const usage of episode.usages) {
-      const group = originGroup(usage);
-      if (group) counts.set(group, counts.get(group) + 1);
-    }
-  }
-  const total = [...counts.values()].reduce((sum, count) => sum + count, 0);
-  $("#origins-panel").hidden = total === 0;
-  if (total === 0) return;
-  renderBars($("#origins"), {
-    rows: ORIGIN_GROUPS.filter((group) => counts.get(group.key) > 0 || group.key === state.origin)
-      .map((group) => ({ key: group.key, label: group.label, count: counts.get(group.key) })),
-    selected: state.origin,
-    onSelect: (key) => {
-      state.origin = state.origin === key ? "" : key;
-      update();
-    },
-  });
-  const songs = counts.get("song");
-  $("#origins-caption").textContent = `${formatNumber(total)} erfasste ${total === 1 ? "Zitat" : "Zitate"}, `
-    + `${Math.round((songs / total) * 100)} % aus Songs. Antippen filtert die Liste.`;
-}
-
-// Name der Quelle für „Meistzitiert außerhalb von Songs“: „Film: Wanda“ → „Wanda“, bloß „Person“ → wer es gesagt hat
-function sourceName(usage) {
-  const [tag, rest] = originParts(usage.origin);
-  const name = tag ? rest : usage.origin;
-  return ["film", "serie", "person", "sonstiges"].includes(normalizeText(name)) ? usage.artist : name;
-}
-
-function renderCharts(animate) {
-  if (timelineShown) renderTimelinePanel(animate);
-  if ($("#more").open) renderMore(animate);
-}
-
-function renderTimelinePanel(animate) {
-  const shownYears = years.filter((year) => year >= state.from && year <= state.to);
-  const inRange = episodes.filter((episode) => episode.year && episode.year >= state.from && episode.year <= state.to);
-  const ids = new Set(filtered.map((episode) => episode.id));
-  const showTable = tables.has("timeline");
-  const compact = phone.matches;
-  $("#timeline").hidden = showTable;
-  $("#timeline-readout").hidden = showTable || compact;
-  $("#timeline-table").hidden = !showTable;
-  $("#timeline-caption").textContent = compact
-    ? "Jede Zeile ist ein Jahr, der Balken zeigt den Stand seiner Folgen. Antippen zeigt nur dieses Jahr."
-    : "Jeder Punkt ist eine Folge. Antippen zeigt sie oben, der Titel dort öffnet sie. Eine Jahreszahl zeigt nur dieses Jahr.";
-  if (showTable) {
-    renderTable($("#timeline-table"), ["Jahr", "Folgen", "mit Zitat", ...STATUSES.map((status) => status.label)], shownYears.map((year) => {
-      const items = filtered.filter((episode) => episode.year === year);
-      return [
-        String(year),
-        formatNumber(items.length),
-        formatNumber(items.filter((episode) => episode.hasQuote).length),
-        ...STATUSES.map((status) => formatNumber(items.filter((episode) => episode.status === status.key).length)),
-      ];
-    }));
-    return;
-  }
-  const activeYear = isNarrowed() && state.from === state.to ? state.from : null;
-  const onYear = (year) => {
-    const single = isNarrowed() && state.from === year && state.to === year;
-    state.from = single ? years[0] : year;
-    state.to = single ? years.at(-1) : year;
-    update();
-  };
-  if (compact) {
-    renderYearBars($("#timeline"), { years: shownYears, episodes: inRange, activeYear, status: state.status, onYear, animate });
-    return;
-  }
-  renderTimeline($("#timeline"), $("#timeline-readout"), {
-    years: shownYears,
-    episodes: inRange,
-    isMatch: (episode) => ids.has(episode.id),
-    activeYear,
-    onOpen: (episode) => openEpisode(episode.id),
-    onYear,
-    animate,
-  });
-}
-
-function renderMore(animate) {
-  // Erst das Panel daneben ein- oder ausblenden, dann hat das Diagramm seine endgültige Breite
-  const counts = new Map();
-  for (const usage of filtered.flatMap((episode) => episode.usages)) {
-    if (usage.artist && (usage.status === "bestätigt" || (state.suspected && usage.status === "vermutet"))) {
-      // Features zählen mit: „B-Tight feat. Sido“ zählt für beide, Schreibweisen sind vereinheitlicht
-      for (const artist of usage.artists) counts.set(artist, (counts.get(artist) || 0) + 1);
-    }
-  }
-  const rows = [...counts].map(([artist, count]) => ({ artist, count }))
-    .sort((a, b) => b.count - a.count || a.artist.localeCompare(b.artist, "de"))
-    .slice(0, 8);
-  $("#artists-panel").hidden = rows.length === 0;
-  if (rows.length > 0) {
-    renderBars($("#artists"), {
-      rows: rows.map((row) => ({ key: row.artist, label: row.artist, count: row.count })),
-      selected: state.artist,
-      onSelect: (artist) => {
-        state.artist = state.artist === artist ? "" : artist;
-        update();
-      },
-    });
-    $("#artists-caption").textContent = state.suspected
-      ? "Bestätigte und vermutete Songs. Antippen filtert."
-      : "Nur bestätigte Songs. Antippen filtert.";
-  }
-  // Filme, Personen und mehr: Quellen der Zitate, die nicht aus Songs stammen
-  const sources = new Map();
-  for (const usage of filtered.flatMap((episode) => episode.usages)) {
-    const name = usage.status === "kein Song" ? sourceName(usage) : "";
-    if (name) sources.set(name, (sources.get(name) || 0) + 1);
-  }
-  const sourceRows = [...sources].map(([label, count]) => ({ key: label, label, count }))
-    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "de"))
-    .slice(0, 8);
-  $("#sources-panel").hidden = sourceRows.length === 0;
-  if (sourceRows.length > 0) {
-    renderBars($("#sources"), {
-      rows: sourceRows,
-      selected: state.q,
-      onSelect: (name) => {
-        state.q = state.q === name ? "" : name;
-        update();
-      },
-    });
-  }
-  // Ohne erfasste Längen bleibt das Panel ganz weg statt leer zu stehen
-  const timed = filtered.filter((episode) => episode.date && episode.duration).length;
-  $("#duration-panel").hidden = timed < 2;
-  const showTable = tables.has("durations");
-  $("#durations").hidden = showTable;
-  $("#duration-readout").hidden = showTable;
-  $("#durations-table").hidden = !showTable;
-  if (showTable) {
-    const shownYears = years.filter((year) => year >= state.from && year <= state.to);
-    renderTable($("#durations-table"), ["Jahr", "Folgen", "Schnitt", "Längste", "Kürzeste"], shownYears.map((year) => {
-      const values = filtered.filter((episode) => episode.year === year && episode.duration).map((episode) => episode.duration);
-      if (values.length === 0) return [String(year), "0", "–", "–", "–"];
-      const average = values.reduce((sum, value) => sum + value, 0) / values.length;
-      return [String(year), formatNumber(values.length), formatDuration(average, { exact: false }), formatDuration(Math.max(...values)), formatDuration(Math.min(...values))];
-    }));
-  } else if (timed >= 2) {
-    renderDurations($("#durations"), $("#duration-readout"), {
-      episodes: filtered,
-      onOpen: (episode) => openEpisode(episode.id),
-      animate,
-    });
-  }
-
-  renderFacts(filtered);
-  renderCollectionStats(filtered);
-}
-
-function renderCollectionStats(list) {
-  const stats = collectionStats(list);
-  const rows = yearlyStats(list);
-  $("#collection-health").replaceChildren(...[
-    ["Zuordnung bestätigt", stats.percent === null ? "–" : `${stats.percent} %`,
-      `${formatNumber(stats.confirmed)} von ${formatNumber(stats.possible)} Folgen mit möglichem Zitat`],
-    ["Zitat fehlt noch", formatNumber(stats.missing), "Folgen zum Miträtseln in der aktuellen Auswahl"],
-    ["Typische Folgenlänge", stats.median === null ? "–" : formatDuration(stats.median, { exact: false }),
-      `Median aus ${formatNumber(stats.timed)} Folgen mit Laufzeit`],
-    ["Spotify-Link fehlt", formatNumber(stats.missingLinks), "bei bestätigten Song-Zuordnungen"],
-    ["Spotify-Link geht nicht", formatNumber(stats.unavailableLinks), "Song bei Spotify nicht mehr abspielbar, neuer Link gesucht"],
-  ].map(([label, value, note]) => {
-    const fact = element("div", "fact");
-    const description = element("dd");
-    description.append(element("strong", "", value), element("small", "", note));
-    fact.append(element("dt", "", label), description);
-    return fact;
-  }));
-  const coverage = $("#coverage");
-  coverage.replaceChildren(...rows.map((row) => {
-    const item = element("li", "coverage-row");
-    const heading = element("div", "coverage-heading");
-    const button = element("button", "text-button", String(row.year));
-    button.type = "button";
-    button.setAttribute("aria-label", `Folgen aus ${row.year} anzeigen`);
-    button.addEventListener("click", () => selectYear(row.year));
-    heading.append(button, element("span", "", row.percent === null ? "ohne Zitate" : `${row.percent} % bestätigt`));
-    const track = element("div", "coverage-track");
-    track.setAttribute("aria-hidden", "true");
-    const fill = element("span");
-    fill.style.width = `${row.percent || 0}%`;
-    track.append(fill);
-    item.append(heading, track, element("p", "", `${row.confirmed} bestätigt · ${row.missing} ohne erfasstes Zitat · ${row.withoutQuote} ohne Zitat begonnen`));
-    return item;
-  }));
-  if (!rows.length) coverage.append(element("li", "chart-empty", "Keine Folgen mit Erscheinungsdatum in dieser Auswahl."));
-  $("#listening-panel").hidden = !rows.some((row) => row.timed);
-  renderTable($("#listening-table"), ["Jahr", "Folgen mit Länge", "Hörzeit", "Ø Länge"],
-    rows.filter((row) => row.timed).map((row) => [
-      String(row.year), formatNumber(row.timed), `${formatNumber(Math.round(row.seconds / 3600))} Std.`,
-      formatDuration(row.seconds / row.timed, { exact: false }),
-    ]));
-  renderBars($("#listening"), {
-    rows: rows.filter((row) => row.timed).map((row) => ({
-      key: row.year, label: String(row.year), count: Math.round(row.seconds / 3600),
-    })),
-    selected: state.from === state.to ? state.from : null,
-    onSelect: selectYear,
-  });
-}
-
-function selectYear(year) {
-  state.from = year;
-  state.to = year;
-  update();
-}
-
-function renderFacts(list) {
-  const facts = [];
-  const timed = list.filter((episode) => episode.duration);
-  if (timed.length > 0) {
-    const longest = timed.reduce((best, episode) => (episode.duration > best.duration ? episode : best));
-    const shortest = timed.reduce((best, episode) => (episode.duration < best.duration ? episode : best));
-    facts.push(["Längste Folge", formatDuration(longest.duration), `#${longest.id} ${longest.title}`, longest]);
-    facts.push(["Kürzeste Folge", formatDuration(shortest.duration), `#${shortest.id} ${shortest.title}`, shortest]);
-  }
-  const dated = list.filter((episode) => episode.date).sort((a, b) => a.date - b.date);
-  if (dated.length > 1) {
-    // nur direkt aufeinanderfolgende Folgen vergleichen, sonst wären Lücken in den Daten eine "Pause"
-    let gap = { days: 0 };
-    for (let index = 1; index < dated.length; index += 1) {
-      if (dated[index].number !== dated[index - 1].number + 1) continue;
-      const days = Math.round((dated[index].date - dated[index - 1].date) / 86400000);
-      if (days > gap.days) gap = { days, before: dated[index - 1], after: dated[index] };
-    }
-    if (gap.before) facts.push(["Längste Pause", `${formatNumber(gap.days)} Tage`, `vor #${gap.after.id}`, gap.after]);
-    const weekdays = new Map();
-    for (const episode of dated) {
-      const day = formatWeekday(episode.date);
-      weekdays.set(day, (weekdays.get(day) || 0) + 1);
-    }
-    const [day, count] = [...weekdays].sort((a, b) => b[1] - a[1])[0];
-    facts.push(["Erscheint meist", day, `bei ${Math.round((count / dated.length) * 100)} % der Folgen`]);
-    const newest = dated.at(-1);
-    facts.push(["Neueste Folge", `#${newest.id}`, `${newest.title} · ${formatDate(newest.date)}`, newest]);
-  }
-  // Seit wann es Einstiegszitate gibt, sobald frühe Folgen ohne Zitat eingetragen sind
-  const quoted = list.filter((episode) => episode.hasQuote && Number.isFinite(episode.number));
-  if (quoted.length > 0 && list.some((episode) => episode.status === "kein Zitat")) {
-    const first = quoted.reduce((best, episode) => (episode.number < best.number ? episode : best));
-    facts.push(["Erstes Zitat", `#${first.id}`, first.title, first]);
-  }
-  $("#facts").replaceChildren(...facts.map(([label, value, note, episode]) => {
-    const fact = element("div", "fact");
-    const content = element("dd");
-    const target = episode ? element("a") : content;
-    if (episode) {
-      target.href = `#${hashFor({ folge: episode.id })}`;
-      content.append(target);
-    }
-    target.append(element("strong", "", value), element("small", "", note));
-    fact.append(element("dt", "", label), content);
-    return fact;
-  }));
 }
 
 // --- Folgenliste ---------------------------------------------------------------------------
@@ -849,7 +507,7 @@ function yearHead(group) {
   const withQuote = group.episodes.filter((episode) => episode.hasQuote).length;
   head.append(
     element("h3", "", String(group.key)),
-    element("p", "", `${formatNumber(group.episodes.length)} Folgen${withQuote ? ` · ${formatNumber(withQuote)} mit Zitat` : ""}`),
+    element("p", "", `${formatNumber(group.episodes.length)} ${group.episodes.length === 1 ? "Folge" : "Folgen"}${withQuote ? ` · ${formatNumber(withQuote)} mit Zitat` : ""}`),
   );
   return head;
 }
@@ -914,19 +572,6 @@ function setupSheets() {
       writeHash();
     }
   });
-  $("#more").addEventListener("toggle", () => {
-    if ($("#more").open) renderMore(true);
-  });
-  for (const button of document.querySelectorAll("[data-table-toggle]")) {
-    button.addEventListener("click", () => {
-      const name = button.dataset.tableToggle;
-      if (tables.has(name)) tables.delete(name);
-      else tables.add(name);
-      button.setAttribute("aria-pressed", String(tables.has(name)));
-      button.textContent = tables.has(name) ? "Als Diagramm" : "Als Tabelle";
-      renderCharts(false);
-    });
-  }
   $("#ep-share").addEventListener("click", shareEpisode);
   $("#ep-embed").addEventListener("click", loadPlayer);
   $("#ep-prev").addEventListener("click", () => navigate(-1));
@@ -936,7 +581,6 @@ function setupSheets() {
 function openSheet(dialog) {
   if (dialog.open) return;
   dialog.classList.remove("is-closing");
-  hideTooltip();
   dialog.showModal();
   dialog.querySelector(".sheet-panel").scrollTop = 0;
 }
@@ -1206,11 +850,15 @@ let quizDeck = [];
 let quizIndex = -1;
 const quizScore = { right: 0, played: 0 };
 
+// Die Karten stehen in eigenen Abschnitten; ohne Daten bleibt der ganze Abschnitt weg
 function setupSpotlight() {
   setupToday();
   setupPlaylistCard();
   setupQuiz();
-  $("#spotlight").hidden = $("#today").hidden && $("#playlist-card").hidden && $("#quiz").hidden;
+  for (const card of [$("#today"), $("#playlist-card"), $("#quiz")]) {
+    card.closest("section").hidden = card.hidden;
+    card.hidden = false;
+  }
 }
 
 function changeCard(card) {
@@ -1276,8 +924,8 @@ function setupPlaylistCard() {
   const songs = new Set(episodes.flatMap((episode) => episode.usages)
     .filter((usage) => usage.review === "bestätigt" && isSongUsage(usage) && usage.trackUrl)
     .map((usage) => usage.trackUrl)).size;
-  $("#playlist-meta").textContent = `${formatNumber(songs)} ${songs === 1 ? "Song" : "Songs"}, die neueste Folge steht oben. `
-    + "Jeder bestätigte Song kommt automatisch dazu.";
+  $("#playlist-count").dataset.count = String(songs);
+  $("#playlist-title small").textContent = songs === 1 ? "Song" : "Songs";
   $("#playlist-play").addEventListener("click", () => {
     embedSpotify($("#playlist-embed"), "playlist", playlistUrl.split("/").pop(), 352, "Spotify-Playlist zu Gemischtes Hack");
     $("#playlist-play").hidden = true;

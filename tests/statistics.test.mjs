@@ -1,7 +1,18 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { collectionStats, yearlyStats } from "../site/assets/statistics.js";
+import {
+  collectionStats,
+  longestSongRun,
+  personNames,
+  quoteExtremes,
+  quoteSources,
+  repeatedSongs,
+  topArtists,
+  topDuos,
+  yearFavourites,
+  yearlyStats,
+} from "../site/assets/statistics.js";
 import { loadData } from "../site/assets/data.js";
 
 function episode(overrides = {}) {
@@ -85,4 +96,58 @@ test("artist spellings and separators are unified for the evaluation", async (t)
   assert.equal(episodes[0].usages[0].linkUnavailable, true);
   assert.equal(episodes[1].usages[0].note, "Nicht bei Spotify");
   assert.equal(collectionStats(episodes).unavailableLinks, 1);
+});
+
+async function episodesFrom(t, lines) {
+  const csv = ["verwendung_id,folge_id,folge_titel,zitat,songtitel,interpret,spotify_link,herkunft,pruefstatus", ...lines].join("\n");
+  t.mock.method(globalThis, "fetch", async () => new Response(csv));
+  return loadData();
+}
+
+test("artists count every confirmed quote, features included, and each song once", async (t) => {
+  const episodes = await episodesFrom(t, [
+    "001-1,1,A,Eins,Weihnachtssong,Sido,https://open.spotify.com/track/aaaaaaaaaaaaaaaaaaaaaa,,bestätigt",
+    "002-1,2,B,Zwei,Weihnachtssong,Sido,https://open.spotify.com/track/bbbbbbbbbbbbbbbbbbbbbb,,bestätigt",
+    "003-1,3,C,Drei,Sehr Geil,B-Tight feat. Sido,,,bestätigt",
+    "004-1,4,D,Vier,HUSTLEN,Luvre47,,,bestätigt",
+    "005-1,5,E,Fünf,Offen,Luvre47,,,offen",
+    "006-1,6,F,Sechs,,Tommi Schmitt,,Person: Tommi Schmitt,bestätigt",
+  ]);
+  const artists = topArtists(episodes);
+  assert.deepEqual(artists.map(({ name, quotes, songs }) => [name, quotes, songs]), [["Sido", 3, 2], ["B-Tight", 1, 1], ["Luvre47", 1, 1]]);
+  // gleicher Titel trotz anderem Spotify-Link ist derselbe Song
+  assert.deepEqual(repeatedSongs(episodes).map((song) => [song.song, song.episodes.map((episode) => episode.id)]), [["Weihnachtssong", ["1", "2"]]]);
+  assert.deepEqual(topDuos(episodes), [{ names: ["B-Tight", "Sido"], count: 1 }]);
+  assert.deepEqual(longestSongRun(episodes), { length: 4, from: 1, to: 4 });
+});
+
+test("people are named, random encounters counted as unknown", async (t) => {
+  assert.deepEqual(personNames("Person: Tommi Schmitt"), ["Tommi Schmitt"]);
+  assert.deepEqual(personNames("Person: Felix Lobrecht & Julian Lobrecht"), ["Felix Lobrecht", "Julian Lobrecht"]);
+  assert.deepEqual(personNames("Person: Samra in jedem Track"), ["Samra"]);
+  assert.deepEqual(personNames("Person: Birdmans legendäres Interview bei The Breakfast Club"), ["Birdman"]);
+  assert.deepEqual(personNames("Person: Ein Typ im Supermarkt"), [null]);
+  assert.deepEqual(personNames("Person: Zitteraal Doku"), [null]);
+  const episodes = await episodesFrom(t, [
+    "001-1,1,A,Eins,,,,Person: Tommi Schmitt,bestätigt",
+    "002-1,2,B,Zwei,,,,Person: Tommi Schmitt,bestätigt",
+    "003-1,3,C,Drei,,,,Person: Tankwart,bestätigt",
+    "004-1,4,D,Vier,,,,Film: Top Boy,bestätigt",
+    "005-1,5,E,Fünf,,,,Aufschrift auf einem Sprinter,bestätigt",
+    "006-1,6,F,Sechs,,,,Person: Jemand,offen",
+  ]);
+  const sources = quoteSources(episodes);
+  assert.equal(sources.total, 5);
+  assert.deepEqual(sources.people.map((person) => [person.name, person.count]), [["Tommi Schmitt", 2]]);
+  assert.deepEqual([sources.anonymous.length, sources.films.length, sources.finds.length], [1, 1, 1]);
+  assert.equal(quoteExtremes(episodes).shortest.usage.quote, "Eins");
+});
+
+test("each year names its favourite only when someone was quoted", async (t) => {
+  const episodes = await episodesFrom(t, [
+    "001-1,1,A,Eins,Song,Drake,,,bestätigt",
+    "002-1,2,B,Zwei,Song 2,Drake,,,bestätigt",
+  ]);
+  episodes.forEach((episode) => { episode.year = 2020; });
+  assert.deepEqual(yearFavourites(episodes), [{ year: 2020, names: ["Drake"], count: 2, quotes: 2, songs: 2, episodes: 2 }]);
 });
